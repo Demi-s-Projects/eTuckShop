@@ -1,7 +1,7 @@
 "use client";
 import { useState, FormEvent } from "react";
 import { useCreateUserWithEmailAndPassword } from "react-firebase-hooks/auth";
-import { auth } from "@/app/firebase";
+import { auth } from "@/firebase/config";
 import Link from "next/link";
 import { authStyles } from "@/app/auth.module";
 
@@ -15,14 +15,21 @@ export default function CustomerRegister() {
         e.preventDefault();
 		try {
 			const UserCred = await createUserWithEmailAndPassword(email, password);
-            const user = UserCred?.user
-            const token = user?.getIdToken
-			//api stuff to deal with roles
+            const user = UserCred?.user;
+            const token = await user?.getIdToken();
+            await fetch("/api/users", {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({role: "customer"})
+            })
             //error handling in case api dies or fails to create role
 			setEmail("");
 			setPassword("");
-		} catch (e) {
-			console.error(e);
+		} catch (err) {
+			console.error(err);
 		}
 	}
 
@@ -40,6 +47,7 @@ export default function CustomerRegister() {
 						name="email"
 						required
 						style={authStyles.input}
+                        value={email}
 						onChange={(e) => setEmail(e.target.value)}
 					/>
 				</div>
@@ -53,6 +61,7 @@ export default function CustomerRegister() {
 						name="password"
 						required
 						style={authStyles.input}
+                        value={password}
 						onChange={(e) => setPassword(e.target.value)}
 					/>
 				</div>

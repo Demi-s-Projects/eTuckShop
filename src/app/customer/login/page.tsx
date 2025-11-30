@@ -1,7 +1,7 @@
 "use client";
 import { authStyles } from "@/app/auth.module";
 import { useState } from "react";
-import { auth } from "@/app/firebase";
+import { auth } from "@/firebase/config";
 import Link from "next/link";
 
 export default function CustomerLogin() {
