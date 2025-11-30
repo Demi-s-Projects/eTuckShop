@@ -26,14 +26,14 @@ export default function CustomerRegister() {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: `Bearer${token}`,
+					Authorization: `Bearer ${token}`,
 				},
 				body: JSON.stringify({ role: "customer" }),
 			});
 
 			if (!res.ok) throw new Error("Failed to create user role");
 
-			router.push("/dashboard");
+			router.push("dashboard");
 			setEmail("");
 			setPassword("");
 		} catch (err) {

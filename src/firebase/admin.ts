@@ -1,5 +1,4 @@
 import admin from "firebase-admin";
-import "server-only";
 
 function formatPrivateKey(key: string) {
   // only needed if key contains literal \n in env
