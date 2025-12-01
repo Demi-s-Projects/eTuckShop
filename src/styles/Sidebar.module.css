@@ -28,22 +28,22 @@
 }
 
 .logo {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  width: 36px;
+  height: 36px;
+  background: hsl(214 95% 55%);
   border-radius: 8px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1.25rem;
 }
 
 .title {
-  color: hsl(var(--primary-foreground));
-  font-size: 1.25rem;
+  color: hsl(0 0% 100%);
+  font-size: 1.125rem;
   font-weight: 600;
   white-space: nowrap;
   opacity: 1;
@@ -78,35 +78,29 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem 1.5rem;
-  color: hsl(var(--muted-foreground));
+  padding: 0.75rem 1rem;
+  margin: 0.125rem 0.75rem;
+  color: hsl(210 15% 60%);
   text-decoration: none;
   transition: all var(--transition-fast);
   position: relative;
   cursor: pointer;
+  border-radius: 6px;
 }
 
 .navLink:hover {
   background-color: hsl(var(--sidebar-hover));
-  color: hsl(var(--primary-foreground));
+  color: hsl(0 0% 95%);
 }
 
 /* Active state for current page */
 .navLink.active {
-  background-color: hsl(var(--sidebar-hover));
-  color: hsl(var(--primary));
+  background-color: hsl(var(--sidebar-active) / 0.2);
+  color: hsl(var(--sidebar-active));
   font-weight: 500;
 }
 
-.navLink.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background-color: hsl(var(--sidebar-active));
-}
+/* Active indicator removed - using background highlight instead */
 
 /* Icon styling */
 .navIcon {

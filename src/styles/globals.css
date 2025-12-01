@@ -36,9 +36,9 @@
   --radius: 0.5rem;
   
   /* Dashboard specific variables */
-  --sidebar-bg: 215 25% 16%;
-  --sidebar-hover: 215 25% 22%;
-  --sidebar-active: 214 95% 50%;
+  --sidebar-bg: 220 26% 14%;
+  --sidebar-hover: 215 30% 20%;
+  --sidebar-active: 199 89% 48%;
   --topbar-bg: 0 0% 100%;
   --topbar-border: 214 20% 88%;
   

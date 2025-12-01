@@ -20,7 +20,7 @@ interface SidebarProps {
 
 // Navigation items configuration
 const navItems = [
-  { icon: "🏠", label: 'Dashboard', path: '/' },
+  { icon: "🏠", label: 'Dashboard', path: '/owner/home' },
   { icon: "📊", label: 'Analytics', path: '/analytics' },
   { icon: "👥", label: 'Users', path: '/users' },
   { icon: "⚙️", label: 'Settings', path: '/settings' },
