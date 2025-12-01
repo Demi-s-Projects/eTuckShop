@@ -2,14 +2,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "@/firebase/config";
-import { authStyles } from "@/app/auth.module";
+import styles from "@/styles/Auth.module.css";
 
 type Props = {
 	redirectTo?: string;
 	width?: number | string;
+	className?: string;
 };
 
-export default function LogoutButton({ redirectTo = "/login", width }: Props) {
+export default function LogoutButton({ redirectTo = "/login", width, className }: Props) {
 	const router = useRouter();
 	const [loading, setLoading] = useState(false);
 	const [logoutError, setLogoutError] = useState(""); //error alert handling
@@ -30,10 +31,20 @@ export default function LogoutButton({ redirectTo = "/login", width }: Props) {
 		}
 	}
 
+	// If className is provided, we rely on it for styling and only apply width.
+	// Otherwise, we use the default styles.button.
+	const buttonClass = className || styles.button;
+	const buttonStyle = { width: width ?? 140 };
+
 	return (
 		<>
-			{logoutError && <div style={authStyles.errorMEssage}>{logoutError}</div>}
-			<button onClick={handleLogout} disabled={loading} style={{ ...authStyles.button, width: width ?? 140 }}>
+			{logoutError && <div className={styles.errorMessage}>{logoutError}</div>}
+			<button 
+				onClick={handleLogout} 
+				disabled={loading} 
+				className={buttonClass}
+				style={buttonStyle}
+			>
 				{loading ? "Signing out..." : "Logout"}
 			</button>
 		</>

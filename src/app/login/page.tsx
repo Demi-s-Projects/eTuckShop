@@ -7,7 +7,7 @@ import { useSignInWithEmailAndPassword, useAuthState } from "react-firebase-hook
 import { auth } from "@/firebase/config";
 import { VALID_ROLES } from "@/util/consts";
 
-import { authStyles } from "@/app/auth.module";
+import styles from "@/styles/Auth.module.css";
 
 // Customer login page - Signs client in with email and password and
 // exchanges the user token for a server session cookie, then redirects
@@ -112,28 +112,18 @@ export default function CustomerLogin() {
 	}
 
 	return (
-		<div style={authStyles.container}>
-			<h1 style={authStyles.title}>Login</h1>
+		<div className={styles.container}>
+			<h1 className={styles.title}>Login</h1>
 			{authLoading ? (
-				<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 180 }}>
-					<div
-						style={{
-							width: 48,
-							height: 48,
-							border: "4px solid #f0f0f0",
-							borderTop: "4px solid #171717",
-							borderRadius: "50%",
-							animation: "spin 1s linear infinite",
-						}}
-					/>
-					<style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+				<div className={styles.loadingContainer}>
+					<div className={styles.spinner} />
 				</div>
 			) : (
 				<>
-					{loginError && <div style={authStyles.errorMEssage}>{loginError}</div>}
+					{loginError && <div className={styles.errorMessage}>{loginError}</div>}
 					<form onSubmit={handleLogin}>
-						<div style={authStyles.formGroup}>
-							<label htmlFor="email" style={authStyles.label}>
+						<div className={styles.formGroup}>
+							<label htmlFor="email" className={styles.label}>
 								Email
 							</label>
 							<input
@@ -141,12 +131,12 @@ export default function CustomerLogin() {
 								id="email"
 								name="email"
 								required
-								style={authStyles.input}
+								className={styles.input}
 								onChange={(e) => setEmail(e.target.value)}
 							/>
 						</div>
-						<div style={authStyles.formGroupLast}>
-							<label htmlFor="password" style={authStyles.label}>
+						<div className={styles.formGroupLast}>
+							<label htmlFor="password" className={styles.label}>
 								Password
 							</label>
 							<input
@@ -154,23 +144,19 @@ export default function CustomerLogin() {
 								id="password"
 								name="password"
 								required
-								style={authStyles.input}
+								className={styles.input}
 								onChange={(e) => setPassword(e.target.value)}
 							/>
 						</div>
 						<button
 							type="submit"
-							style={{
-								...authStyles.button,
-								opacity: authLoading ? 0.6 : 1,
-								cursor: authLoading ? "not-allowed" : "pointer",
-							}}
+							className={styles.button}
 							disabled={authLoading}
 						>
 							Login
 						</button>
 					</form>
-					<div style={authStyles.linkContainer}>
+					<div className={styles.linkContainer}>
 						<Link href="/register">Don&apos;t have an account? Sign Up</Link>
 					</div>
 				</>

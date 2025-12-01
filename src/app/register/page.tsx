@@ -7,7 +7,7 @@ import { useCreateUserWithEmailAndPassword } from "react-firebase-hooks/auth";
 import { updateProfile } from "firebase/auth";
 import { auth } from "@/firebase/config";
 
-import { authStyles } from "@/app/auth.module";
+import styles from "@/styles/Auth.module.css";
 
 // Customer registration page — collects name/email/password, creates
 // an account in Firebase Auth, assigns the `customer` role via the
@@ -87,13 +87,13 @@ export default function CustomerRegister() {
 	}
 
 	return (
-		<div style={authStyles.container}>
-			<h1 style={authStyles.title}>Sign Up</h1>
-			{signupError && <div style={authStyles.errorMEssage}>{signupError}</div>}
+		<div className={styles.container}>
+			<h1 className={styles.title}>Sign Up</h1>
+			{signupError && <div className={styles.errorMessage}>{signupError}</div>}
 			<form onSubmit={handleRegister}>
-				<div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-					<div style={{ flex: 1 }}>
-						<label htmlFor="firstName" style={authStyles.label}>
+				<div className={styles.nameRow}>
+					<div className={styles.flex1}>
+						<label htmlFor="firstName" className={styles.label}>
 							First name
 						</label>
 						<input
@@ -101,13 +101,13 @@ export default function CustomerRegister() {
 							id="firstName"
 							name="firstName"
 							required
-							style={authStyles.input}
+							className={styles.input}
 							value={firstName}
 							onChange={(e) => setFirstName(e.target.value)}
 						/>
 						</div>
-						<div style={{ flex: 1 }}>
-							<label htmlFor="lastName" style={authStyles.label}>
+						<div className={styles.flex1}>
+							<label htmlFor="lastName" className={styles.label}>
 								Last name
 							</label>
 							<input
@@ -115,14 +115,14 @@ export default function CustomerRegister() {
 								id="lastName"
 								name="lastName"
 								required
-								style={authStyles.input}
+								className={styles.input}
 								value={lastName}
 								onChange={(e) => setLastName(e.target.value)}
 							/>
 						</div>
 					</div>
-				<div style={authStyles.formGroup}>
-					<label htmlFor="email" style={authStyles.label}>
+				<div className={styles.formGroup}>
+					<label htmlFor="email" className={styles.label}>
 						Email
 					</label>
 					<input
@@ -130,13 +130,13 @@ export default function CustomerRegister() {
 						id="email"
 						name="email"
 						required
-						style={authStyles.input}
+						className={styles.input}
 						value={email}
 						onChange={(e) => setEmail(e.target.value)}
 					/>
 				</div>
-				<div style={authStyles.formGroupLast}>
-					<label htmlFor="password" style={authStyles.label}>
+				<div className={styles.formGroupLast}>
+					<label htmlFor="password" className={styles.label}>
 						Password
 					</label>
 					<input
@@ -144,16 +144,16 @@ export default function CustomerRegister() {
 						id="password"
 						name="password"
 						required
-						style={authStyles.input}
+						className={styles.input}
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
 					/>
 				</div>
-				<button type="submit" style={authStyles.button}>
+				<button type="submit" className={styles.button}>
 					Sign Up
 				</button>
 			</form>
-			<div style={authStyles.linkContainer}>
+			<div className={styles.linkContainer}>
 				<Link href="login">Already have an account? Login</Link>
 			</div>
 		</div>
