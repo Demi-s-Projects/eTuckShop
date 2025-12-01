@@ -3,42 +3,41 @@ import { useState, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { useCreateUserWithEmailAndPassword } from "react-firebase-hooks/auth";
+import { useSignInWithEmailAndPassword } from "react-firebase-hooks/auth";
 import { auth } from "@/firebase/config";
 
 import { authStyles } from "@/app/auth.module";
 
-export default function CustomerRegister() {
+export default function CustomerLogin() {
 	const router = useRouter();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
-	const [createUserWithEmailAndPassword] = useCreateUserWithEmailAndPassword(auth);
+	const [signInWithEmailAndPassword] = useSignInWithEmailAndPassword(auth);
 	const [signupError, setSignupError] = useState("");
 
-	async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+	async function handleLogin(e: FormEvent) {
 		e.preventDefault();
 		setSignupError("");
 		try {
-			const UserCred = await createUserWithEmailAndPassword(email, password);
+			//check if already logged in then take them here
+			const UserCred = await signInWithEmailAndPassword(email, password);
 			const user = UserCred?.user;
-			const token = await user?.getIdToken();
-			const res = await fetch("/api/users", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${token}`,
-				},
-				body: JSON.stringify({ role: "customer" }),
-			});
+			if (!user) throw new Error("Failed to login user");
 
-			if (!res.ok) throw new Error("Failed to create user role");
+			const tokenResult = await user.getIdTokenResult(true);
+			const role = tokenResult.claims.role;
 
-			router.push("dashboard");
+			if (role === "customer") {
+				router.push("/customer/home");
+			} else if (role === "owner") {
+				router.push("/executive/home");
+			}else{
+				throw new Error
+			}
 			setEmail("");
 			setPassword("");
 		} catch (err) {
 			const errorMessage = err instanceof Error ? err.message : "An error occurred during sign up";
-			await auth.currentUser?.delete(); // cleanup
 			await auth.signOut();
 			setSignupError(errorMessage);
 			console.error(err);
@@ -47,9 +46,9 @@ export default function CustomerRegister() {
 
 	return (
 		<div style={authStyles.container}>
-			<h1 style={authStyles.title}>Sign Up</h1>
+			<h1 style={authStyles.title}>Login</h1>
 			{signupError && <div style={authStyles.errorMEssage}>{signupError}</div>}
-			<form onSubmit={handleSubmit}>
+			<form onSubmit={handleLogin}>
 				<div style={authStyles.formGroup}>
 					<label htmlFor="email" style={authStyles.label}>
 						Email
@@ -60,7 +59,6 @@ export default function CustomerRegister() {
 						name="email"
 						required
 						style={authStyles.input}
-						value={email}
 						onChange={(e) => setEmail(e.target.value)}
 					/>
 				</div>
@@ -74,16 +72,15 @@ export default function CustomerRegister() {
 						name="password"
 						required
 						style={authStyles.input}
-						value={password}
 						onChange={(e) => setPassword(e.target.value)}
 					/>
 				</div>
 				<button type="submit" style={authStyles.button}>
-					Sign Up
+					Login
 				</button>
 			</form>
 			<div style={authStyles.linkContainer}>
-				<Link href="/customer/login">Already have an account? Login</Link>
+				<Link href="/customer/register">Don&apos;t have an account? Sign Up</Link>
 			</div>
 		</div>
 	);
