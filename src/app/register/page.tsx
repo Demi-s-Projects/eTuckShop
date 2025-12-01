@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { useCreateUserWithEmailAndPassword } from "react-firebase-hooks/auth";
+import { updateProfile } from "firebase/auth";
 import { auth } from "@/firebase/config";
 
 import { authStyles } from "@/app/auth.module";
@@ -11,6 +12,8 @@ import { authStyles } from "@/app/auth.module";
 export default function CustomerRegister() {
 	const router = useRouter();
 	const [email, setEmail] = useState("");
+	const [firstName, setFirstName] = useState("");
+	const [lastName, setLastName] = useState("");
 	const [password, setPassword] = useState("");
 	const [createUserWithEmailAndPassword] = useCreateUserWithEmailAndPassword(auth);
 	const [signupError, setSignupError] = useState("");
@@ -21,6 +24,15 @@ export default function CustomerRegister() {
 		try {
 			const UserCred = await createUserWithEmailAndPassword(email, password);
 			const user = UserCred?.user;
+			if (!user) throw new Error("No user returned from Firebase");
+
+			// update display name on firebase user
+			try {
+				await updateProfile(user, { displayName: `${firstName} ${lastName}` });
+			} catch (e) {
+				console.warn("Failed to update profile displayName:", e);
+			}
+
 			const token = await user?.getIdToken();
 			const res = await fetch("/api/users", {
 				method: "POST",
@@ -28,7 +40,7 @@ export default function CustomerRegister() {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${token}`,
 				},
-				body: JSON.stringify({ role: "customer" }),
+				body: JSON.stringify({ role: "customer", firstName, lastName, email }),
 			});
 
 			if (!res.ok) throw new Error("Failed to create user role");
@@ -50,6 +62,8 @@ export default function CustomerRegister() {
 			}
 
 			router.replace("/customer/home");
+			setFirstName("");
+			setLastName("");
 			setEmail("");
 			setPassword("");
 		} catch (err) {
@@ -66,6 +80,36 @@ export default function CustomerRegister() {
 			<h1 style={authStyles.title}>Sign Up</h1>
 			{signupError && <div style={authStyles.errorMEssage}>{signupError}</div>}
 			<form onSubmit={handleRegister}>
+				<div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+					<div style={{ flex: 1 }}>
+						<label htmlFor="firstName" style={authStyles.label}>
+							First name
+						</label>
+						<input
+							type="text"
+							id="firstName"
+							name="firstName"
+							required
+							style={authStyles.input}
+							value={firstName}
+							onChange={(e) => setFirstName(e.target.value)}
+						/>
+						</div>
+						<div style={{ flex: 1 }}>
+							<label htmlFor="lastName" style={authStyles.label}>
+								Last name
+							</label>
+							<input
+								type="text"
+								id="lastName"
+								name="lastName"
+								required
+								style={authStyles.input}
+								value={lastName}
+								onChange={(e) => setLastName(e.target.value)}
+							/>
+						</div>
+					</div>
 				<div style={authStyles.formGroup}>
 					<label htmlFor="email" style={authStyles.label}>
 						Email
