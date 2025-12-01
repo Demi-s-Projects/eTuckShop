@@ -32,8 +32,24 @@ export default function CustomerRegister() {
 			});
 
 			if (!res.ok) throw new Error("Failed to create user role");
+			
+			//refresh token to get new token updated with role
+			const freshToken = await user?.getIdToken(true);
 
-			router.push("/customer/home");
+			//Create session cookie
+			const sessionRes = await fetch("/api/session", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ token: freshToken }), 
+			});
+
+			if (!sessionRes.ok) {
+				throw new Error("Failed to create session");
+			}
+
+			router.replace("/customer/home");
 			setEmail("");
 			setPassword("");
 		} catch (err) {

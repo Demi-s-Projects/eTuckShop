@@ -10,6 +10,7 @@
     "create-owner": "tsx --env-file=.env src/util/createOwner.ts"
   },
   "dependencies": {
+    "cookie": "^1.1.1",
     "firebase": "^12.6.0",
     "firebase-admin": "^13.6.0",
     "next": "16.0.3",

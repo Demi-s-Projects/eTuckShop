@@ -39,33 +39,46 @@ export default function CustomerLogin() {
 			mounted = false;
 		};
 	}, [currentUser, authLoading, router]);
-	const [signupError, setSignupError] = useState("");
+	const [loginError, setLoginError] = useState("");
 
 	async function handleLogin(e: FormEvent) {
 		e.preventDefault();
-		setSignupError("");
+		setLoginError("");
 		try {
 			//check if already logged in then take them here
 			const UserCred = await signInWithEmailAndPassword(email, password);
 			const user = UserCred?.user;
 			if (!user) throw new Error("Failed to login user");
 
+			const token = await user.getIdToken(true);
 			const tokenResult = await user.getIdTokenResult(true);
 			const role = tokenResult.claims.role;
 
+			const sessionRes = await fetch("/api/session", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ token }),
+			});
+
+			if (!sessionRes.ok) {
+				throw new Error("Failed to create session");
+			}
+
 			if (role === "customer") {
-				router.push("/customer/home");
+				router.replace("/customer/home");
 			} else if (role === "owner") {
-				router.push("/owner/home");
-			}else{
-				throw new Error
+				router.replace("/owner/home");
+			} else {
+				throw new Error("Invalid user type found");
 			}
 			setEmail("");
 			setPassword("");
 		} catch (err) {
 			const errorMessage = err instanceof Error ? err.message : "An error occurred during sign up";
 			await auth.signOut();
-			setSignupError(errorMessage);
+			setLoginError(errorMessage);
 			console.error(err);
 		}
 	}
@@ -74,56 +87,65 @@ export default function CustomerLogin() {
 		<div style={authStyles.container}>
 			<h1 style={authStyles.title}>Login</h1>
 			{authLoading ? (
-				<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 180 }}>
-					<div style={{ width: 48, height: 48, border: '4px solid #f0f0f0', borderTop: '4px solid #171717', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+				<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 180 }}>
+					<div
+						style={{
+							width: 48,
+							height: 48,
+							border: "4px solid #f0f0f0",
+							borderTop: "4px solid #171717",
+							borderRadius: "50%",
+							animation: "spin 1s linear infinite",
+						}}
+					/>
 					<style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 				</div>
 			) : (
 				<>
-					{signupError && <div style={authStyles.errorMEssage}>{signupError}</div>}
+					{loginError && <div style={authStyles.errorMEssage}>{loginError}</div>}
 					<form onSubmit={handleLogin}>
-				<div style={authStyles.formGroup}>
-					<label htmlFor="email" style={authStyles.label}>
-						Email
-					</label>
-					<input
-						type="email"
-						id="email"
-						name="email"
-						required
-						style={authStyles.input}
-						onChange={(e) => setEmail(e.target.value)}
-					/>
-				</div>
-				<div style={authStyles.formGroupLast}>
-					<label htmlFor="password" style={authStyles.label}>
-						Password
-					</label>
-					<input
-						type="password"
-						id="password"
-						name="password"
-						required
-						style={authStyles.input}
-						onChange={(e) => setPassword(e.target.value)}
-					/>
-				</div>
-				<button
-					type="submit"
-					style={{
-						...authStyles.button,
-						opacity: authLoading ? 0.6 : 1,
-						cursor: authLoading ? 'not-allowed' : 'pointer',
-					}}
-					disabled={authLoading}
-				>
-					Login
-				</button>
-			</form>
-			<div style={authStyles.linkContainer}>
-				<Link href="/register">Don&apos;t have an account? Sign Up</Link>
-			</div>
-			</>
+						<div style={authStyles.formGroup}>
+							<label htmlFor="email" style={authStyles.label}>
+								Email
+							</label>
+							<input
+								type="email"
+								id="email"
+								name="email"
+								required
+								style={authStyles.input}
+								onChange={(e) => setEmail(e.target.value)}
+							/>
+						</div>
+						<div style={authStyles.formGroupLast}>
+							<label htmlFor="password" style={authStyles.label}>
+								Password
+							</label>
+							<input
+								type="password"
+								id="password"
+								name="password"
+								required
+								style={authStyles.input}
+								onChange={(e) => setPassword(e.target.value)}
+							/>
+						</div>
+						<button
+							type="submit"
+							style={{
+								...authStyles.button,
+								opacity: authLoading ? 0.6 : 1,
+								cursor: authLoading ? "not-allowed" : "pointer",
+							}}
+							disabled={authLoading}
+						>
+							Login
+						</button>
+					</form>
+					<div style={authStyles.linkContainer}>
+						<Link href="/register">Don&apos;t have an account? Sign Up</Link>
+					</div>
+				</>
 			)}
 		</div>
 	);
