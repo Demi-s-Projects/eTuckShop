@@ -83,7 +83,7 @@ export default function CustomerRegister() {
 				</button>
 			</form>
 			<div style={authStyles.linkContainer}>
-				<Link href="/customer/login">Already have an account? Login</Link>
+				<Link href="login">Already have an account? Login</Link>
 			</div>
 		</div>
 	);
