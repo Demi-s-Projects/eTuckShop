@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { useSignInWithEmailAndPassword, useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/firebase/config";
+import { VALID_ROLES } from "@/util/consts";
 
 import { authStyles } from "@/app/auth.module";
 
@@ -39,11 +40,10 @@ export default function CustomerLogin() {
 				try {
 					// force-refresh token so we get latest custom claims
 					const tokenResult = await currentUser.getIdTokenResult(true);
-					const role = tokenResult.claims.role;
-					if (role === "customer") {
-						router.replace("/customer/home");
-					} else if (role === "owner") {
-						router.replace("/owner/home");
+					const role = tokenResult.claims.role as string | undefined;
+					if (role && VALID_ROLES.includes(role)) {
+						// Route to role-specific home (e.g. /owner/home, /customer/home)
+						router.replace(`/${role}/home`);
 					} else {
 						throw new Error("Invalid user type found");
 					}
@@ -76,7 +76,7 @@ export default function CustomerLogin() {
 			// Obtain the role from the user token
 			const token = await user.getIdToken(true);
 			const tokenResult = await user.getIdTokenResult(true);
-			const role = tokenResult.claims.role;
+			const role = tokenResult.claims.role as string|undefined;
 
 			// Exchange the ID token for a server created session cookie
 			const sessionRes = await fetch("/api/session", {
@@ -93,10 +93,8 @@ export default function CustomerLogin() {
 			}
 
 			// Redirect the user based on their role 
-			if (role === "customer") {
-				router.replace("/customer/home");
-			} else if (role === "owner") {
-				router.replace("/owner/home");
+			if (role && VALID_ROLES.includes(role)) {
+				router.replace(`/${role}/home`);
 			} else {
 				throw new Error("Invalid user type found");
 			}

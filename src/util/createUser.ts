@@ -1,19 +1,27 @@
 import { adminAuth } from "@/firebase/admin";
+import {VALID_ROLES} from "./consts"
 
 // Simple email regex for email validation
 const emailRegex = /^[^\s@]+@[^\s@]+.[^\s@]+$/;
 
 async function main() {
     //gets arguments from command line
-	const email = process.argv[2];
-	const password = process.argv[3];
-	const firstName = process.argv[4];
-	const lastName = process.argv[5];
+	const role = process.argv[2]
+	const email = process.argv[3];
+	const password = process.argv[4];
+	const firstName = process.argv[5];
+	const lastName = process.argv[6];
 
-	if (!email || !password || !firstName || !lastName) {
+	if (!role || !email || !password || !firstName || !lastName) {
 		console.error("Missing required arguments.");
 		console.error("Usage: node createOwner.js <email> <password> <firstName> <lastName>");
 		process.exit(1);
+	}
+
+	//validates role
+	if (!VALID_ROLES.includes(role)){
+		console.error("Invalid role provided.");
+		process.exit(1)
 	}
 
     //validates email
@@ -39,8 +47,8 @@ async function main() {
 		console.log("Assigning role...");
 
         //attaches the owner role to the user
-		await adminAuth.setCustomUserClaims(user.uid, { role: "owner" });
-		console.log("Owner role assigned");
+		await adminAuth.setCustomUserClaims(user.uid, { role });
+		console.log(`${role} role assigned`);
 		process.exit(0);
 
 	} catch (errUnknown) {

@@ -1,4 +1,5 @@
 import { adminAuth } from "@/firebase/admin";
+import { VALID_ROLES } from "@/util/consts";
 
 export async function POST(request: Request) {
 	try {
@@ -22,6 +23,10 @@ export async function POST(request: Request) {
 
 		// Parse the request body to get the role
 		const { role } = await request.json();
+
+        if (!VALID_ROLES.includes(role)){
+            return Response.json({error: "Invalid role"}, {status: 400});
+        }
 
 		// Assign custom claims (role) to the user
         // We can get this from the user's token elsewhere

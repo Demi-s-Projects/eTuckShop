@@ -32,12 +32,10 @@ export async function proxy(req: NextRequest) {
 		const path = req.nextUrl.pathname; //gets where the user wants to go
 
 		//below tests if you dont have the right perms then sends you back to the lobby
-		if (path.startsWith("/owner") && role !== "owner") { // OWNER-only routes
+		if (!path.startsWith(`/${role}`)) { // OWNER-only routes
 			return NextResponse.redirect(new URL("/forbidden", req.url));
 		}
-		if (path.startsWith("/customer") && role !== "customer") { // CUSTOMER-only routes
-			return NextResponse.redirect(new URL("/forbidden", req.url));
-		}
+
 
 		// Allow request to continue
 		return res;
