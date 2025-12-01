@@ -66,6 +66,7 @@ export async function GET(request: Request) {
                 OrderTime: data.OrderTime.toDate(),
                 Username: data.Username,
                 OrderContents: data.OrderContents,
+                TotalPrice: data.TotalPrice,
             };
 
             return Response.json({ order }, { status: 200 });
@@ -87,6 +88,7 @@ export async function GET(request: Request) {
                     OrderTime: data.OrderTime.toDate(),
                     Username: data.Username,
                     OrderContents: data.OrderContents,
+                    TotalPrice: data.TotalPrice,
                 };
             });
 
@@ -107,6 +109,7 @@ export async function GET(request: Request) {
                 OrderTime: data.OrderTime.toDate(),
                 Username: data.Username,
                 OrderContents: data.OrderContents,
+                TotalPrice: data.TotalPrice,
             };
         });
 
@@ -125,7 +128,8 @@ export async function GET(request: Request) {
  * 
  * Request Body:
  * - Username: string (required) - The customer placing the order
- * - OrderContents: string (required) - The items being ordered
+ * - OrderContents: OrderItem[] (required) - Array of items being ordered
+ * - TotalPrice: number (required) - Total price of the order
  * 
  * The server generates:
  * - OrderID: Auto-incremented based on the highest existing OrderID
@@ -142,9 +146,17 @@ export async function POST(request: Request) {
         const body: CreateOrderRequest = await request.json();
 
         // Validate required fields
-        if (!body.Username || !body.OrderContents) {
+        if (!body.Username || !body.OrderContents || body.TotalPrice === undefined) {
             return Response.json(
-                { error: "Username and OrderContents are required" },
+                { error: "Username, OrderContents, and TotalPrice are required" },
+                { status: 400 }
+            );
+        }
+
+        // Validate OrderContents is an array
+        if (!Array.isArray(body.OrderContents) || body.OrderContents.length === 0) {
+            return Response.json(
+                { error: "OrderContents must be a non-empty array of items" },
                 { status: 400 }
             );
         }
@@ -168,6 +180,7 @@ export async function POST(request: Request) {
             OrderTime: FieldValue.serverTimestamp(), // Use server timestamp for consistency
             Username: body.Username,
             OrderContents: body.OrderContents,
+            TotalPrice: body.TotalPrice,
         };
 
         // Add the order to Firestore
@@ -198,7 +211,8 @@ export async function POST(request: Request) {
  * Request Body:
  * - OrderID: number (required) - The order to update
  * - Username: string (optional) - New username
- * - OrderContents: string (optional) - New order contents
+ * - OrderContents: OrderItem[] (optional) - New order contents
+ * - TotalPrice: number (optional) - New total price
  * 
  * Note: OrderTime cannot be modified as it represents the original order time
  * 
@@ -238,13 +252,16 @@ export async function PUT(request: Request) {
 
         // Build the update object with only provided fields
         // This allows partial updates
-        const updateData: Partial<Pick<Order, "Username" | "OrderContents">> = {};
+        const updateData: Partial<Pick<Order, "Username" | "OrderContents" | "TotalPrice">> = {};
         
         if (body.Username !== undefined) {
             updateData.Username = body.Username;
         }
         if (body.OrderContents !== undefined) {
             updateData.OrderContents = body.OrderContents;
+        }
+        if (body.TotalPrice !== undefined) {
+            updateData.TotalPrice = body.TotalPrice;
         }
 
         // Only perform update if there are fields to update

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useCart } from "@/context/CartContext";
+import type { OrderItem } from "@/types/Order";
 import styles from "@/styles/Menu.module.css";
 
 interface CartSidebarProps {
@@ -23,12 +24,13 @@ export default function CartSidebar({ isOpen, onClose, username }: CartSidebarPr
         setOrderSuccess(false);
 
         try {
-            // Format order contents as a readable string
-            const orderContents = items
-                .map((item) => `${item.name} x${item.quantity} @ $${item.price.toFixed(2)} = $${(item.price * item.quantity).toFixed(2)}`)
-                .join("; ");
-            
-            const orderSummary = `${orderContents} | Total: $${totalPrice.toFixed(2)}`;
+            // Format order contents as structured OrderItem array
+            const orderContents: OrderItem[] = items.map((item) => ({
+                itemId: item.id,
+                name: item.name,
+                quantity: item.quantity,
+                priceAtPurchase: item.price,
+            }));
 
             const response = await fetch("/api/orders", {
                 method: "POST",
@@ -37,7 +39,8 @@ export default function CartSidebar({ isOpen, onClose, username }: CartSidebarPr
                 },
                 body: JSON.stringify({
                     Username: username,
-                    OrderContents: orderSummary,
+                    OrderContents: orderContents,
+                    TotalPrice: totalPrice,
                 }),
             });
 

@@ -5,6 +5,20 @@
  * This type is used for both client-side display and server-side Firestore operations.
  */
 
+/**
+ * Represents a single item within an order
+ */
+export type OrderItem = {
+    /** Menu item ID for reference */
+    itemId: string;
+    /** Display name of the item */
+    name: string;
+    /** Quantity ordered */
+    quantity: number;
+    /** Price per unit at time of purchase */
+    priceAtPurchase: number;
+};
+
 export type Order = {
     /** Unique identifier for the order */
     OrderID: number;
@@ -12,8 +26,10 @@ export type Order = {
     OrderTime: Date;
     /** Username of the customer who placed the order */
     Username: string;
-    /** JSON string or formatted string describing the items in the order */
-    OrderContents: string;
+    /** Array of items in the order */
+    OrderContents: OrderItem[];
+    /** Total price of the order */
+    TotalPrice: number;
 };
 
 /**
@@ -24,7 +40,8 @@ export type OrderDocument = {
     OrderID: number;
     OrderTime: FirebaseFirestore.Timestamp;
     Username: string;
-    OrderContents: string;
+    OrderContents: OrderItem[];
+    TotalPrice: number;
 };
 
 /**
@@ -33,7 +50,8 @@ export type OrderDocument = {
  */
 export type CreateOrderRequest = {
     Username: string;
-    OrderContents: string;
+    OrderContents: OrderItem[];
+    TotalPrice: number;
 };
 
 /**
@@ -43,5 +61,6 @@ export type CreateOrderRequest = {
 export type UpdateOrderRequest = {
     OrderID: number;
     Username?: string;
-    OrderContents?: string;
+    OrderContents?: OrderItem[];
+    TotalPrice?: number;
 };
