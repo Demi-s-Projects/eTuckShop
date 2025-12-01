@@ -1,0 +1,153 @@
+/**
+ * Top Bar Styles
+ * Header bar with user info and logout button
+ */
+
+.topBar {
+  background-color: hsl(var(--topbar-bg));
+  border-bottom: 1px solid hsl(var(--topbar-border));
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 70px;
+}
+
+/* Left section with menu button and page title */
+.leftSection {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Mobile menu toggle button */
+.menuButton {
+  display: none;
+  padding: 0.5rem;
+  border: none;
+  background: none;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color var(--transition-fast);
+}
+
+.menuButton:hover {
+  background-color: hsl(var(--muted));
+}
+
+/* Page title */
+.pageTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin: 0;
+}
+
+/* Right section with user info and logout */
+.rightSection {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+/* User info display */
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* User avatar */
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+/* User details */
+.userDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.userName {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  line-height: 1.2;
+}
+
+.userRole {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.2;
+}
+
+/* Logout button */
+.logoutButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.logoutButton:hover {
+  background-color: hsl(var(--accent));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsl(var(--primary) / 0.25);
+}
+
+.logoutButton:active {
+  transform: translateY(0);
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+  .topBar {
+    padding: 1rem;
+  }
+
+  /* Show menu button on mobile */
+  .menuButton {
+    display: block;
+  }
+
+  /* Hide user details on small screens */
+  .userDetails {
+    display: none;
+  }
+
+  /* Smaller text on mobile */
+  .pageTitle {
+    font-size: 1.25rem;
+  }
+
+  .logoutButton {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+}
+
+.logoutWrapper {
+  transform: scale(0.9);
+}
