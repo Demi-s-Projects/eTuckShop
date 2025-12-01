@@ -1,12 +1,19 @@
+/**
+ * Customer Menu Page
+ * 
+ * Displays the menu items for customers to browse and add to cart.
+ * Uses the Dashboard layout with red theme for consistency.
+ */
+
 "use client";
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { CartProvider } from "@/context/CartContext";
 import CartSidebar from "@/components/CartSidebar";
-import LogoutButton from "@/components/LogoutButton";
+import Dashboard from "@/components/dashboard";
 import type { MenuItem } from "@/types/MenuItem";
 import styles from "@/styles/Menu.module.css";
+import customerStyles from "@/styles/CustomerHome.module.css";
 import { auth } from "@/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -116,16 +123,26 @@ const MENU_ITEMS: MenuItem[] = [
 function MenuContent() {
     const { addItem, totalItems } = useCart();
     const [isCartOpen, setIsCartOpen] = useState(false);
-    const [username, setUsername] = useState<string>("");
+    const [user, setUser] = useState<{name: string, role: string, email?: string} | undefined>(undefined);
+    const [userId, setUserId] = useState<string>("");
+    const [displayName, setDisplayName] = useState<string>("");
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // Use email or displayName as username
-                setUsername(user.email || user.displayName || "Customer");
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            if (firebaseUser) {
+                const name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Customer';
+                setUser({
+                    name: name,
+                    role: 'Customer',
+                    email: firebaseUser.email || undefined
+                });
+                setUserId(firebaseUser.uid);
+                setDisplayName(name);
             } else {
-                setUsername("Guest");
+                setUser(undefined);
+                setUserId("");
+                setDisplayName("Guest");
             }
             setLoading(false);
         });
@@ -143,85 +160,89 @@ function MenuContent() {
     }, {} as Record<string, MenuItem[]>);
 
     if (loading) {
-        return <div className={styles.menuContainer}>Loading...</div>;
+        return (
+            <div className={customerStyles.loadingContainer}>
+                Loading...
+            </div>
+        );
     }
 
     return (
-        <div className={styles.menuContainer}>
-            <div className={styles.header}>
-                <h1 className={styles.title}>Menu</h1>
-                <div className={styles.navLinks}>
-                    <Link href="/customer/home" className={styles.navLink}>
-                        Home
-                    </Link>
+        <Dashboard user={user} theme="red">
+            <div className={customerStyles.container}>
+                {/* Top action bar with cart */}
+                <div className={customerStyles.topActions}>
                     <button
-                        className={styles.cartButton}
+                        className={customerStyles.cartButton}
                         onClick={() => setIsCartOpen(true)}
                     >
                         🛒 Cart
                         {totalItems > 0 && (
-                            <span className={styles.cartBadge}>{totalItems}</span>
+                            <span className={customerStyles.cartBadge}>{totalItems}</span>
                         )}
                     </button>
-                    <LogoutButton redirectTo="/login" width={100} />
                 </div>
-            </div>
 
-            {Object.entries(categories).map(([category, items]) => (
-                <div key={category} className={styles.categorySection}>
-                    <h2 className={styles.categoryTitle}>{category}</h2>
-                    <div className={styles.menuGrid}>
-                        {items.map((item) => (
-                            <div
-                                key={item.id}
-                                className={`${styles.menuItem} ${!item.available ? styles.unavailable : ""}`}
-                            >
+                <h1 className={customerStyles.title}>Menu</h1>
+                <p className={customerStyles.welcomeText}>Browse our selection and add items to your cart</p>
+
+                {Object.entries(categories).map(([category, items]) => (
+                    <div key={category} className={styles.categorySection}>
+                        <h2 className={styles.categoryTitle}>{category}</h2>
+                        <div className={styles.menuGrid}>
+                            {items.map((item) => (
                                 <div
-                                    className={styles.menuItemImage}
-                                    style={{ 
-                                        display: "flex", 
-                                        alignItems: "center", 
-                                        justifyContent: "center",
-                                        fontSize: "3rem" 
-                                    }}
+                                    key={item.id}
+                                    className={`${styles.menuItem} ${!item.available ? styles.unavailable : ""}`}
                                 >
-                                    {item.category === "Snacks" && "🍪"}
-                                    {item.category === "Drinks" && "🥤"}
-                                    {item.category === "Meals" && "🍔"}
-                                </div>
-                                <h3 className={styles.menuItemName}>{item.name}</h3>
-                                <p className={styles.menuItemDescription}>
-                                    {item.description}
-                                </p>
-                                <div className={styles.menuItemFooter}>
-                                    <span className={styles.menuItemPrice}>
-                                        ${item.price.toFixed(2)}
-                                    </span>
-                                    {item.available ? (
-                                        <button
-                                            className={styles.addButton}
-                                            onClick={() => addItem(item)}
-                                        >
-                                            Add to Cart
-                                        </button>
-                                    ) : (
-                                        <span className={styles.unavailableLabel}>
-                                            Unavailable
+                                    <div
+                                        className={styles.menuItemImage}
+                                        style={{ 
+                                            display: "flex", 
+                                            alignItems: "center", 
+                                            justifyContent: "center",
+                                            fontSize: "3rem" 
+                                        }}
+                                    >
+                                        {item.category === "Snacks" && "🍪"}
+                                        {item.category === "Drinks" && "🥤"}
+                                        {item.category === "Meals" && "🍔"}
+                                    </div>
+                                    <h3 className={styles.menuItemName}>{item.name}</h3>
+                                    <p className={styles.menuItemDescription}>
+                                        {item.description}
+                                    </p>
+                                    <div className={styles.menuItemFooter}>
+                                        <span className={styles.menuItemPrice}>
+                                            ${item.price.toFixed(2)}
                                         </span>
-                                    )}
+                                        {item.available ? (
+                                            <button
+                                                className={styles.addButton}
+                                                onClick={() => addItem(item)}
+                                            >
+                                                Add to Cart
+                                            </button>
+                                        ) : (
+                                            <span className={styles.unavailableLabel}>
+                                                Unavailable
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
 
             <CartSidebar
                 isOpen={isCartOpen}
                 onClose={() => setIsCartOpen(false)}
-                username={username}
+                userId={userId}
+                displayName={displayName}
             />
-        </div>
+        </Dashboard>
     );
 }
 

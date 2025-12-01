@@ -22,6 +22,22 @@
   background-color: #f8f9fa;
 }
 
+/* Theme variations */
+.blue {
+  --theme-primary: 214 95% 55%;
+  --theme-accent: 214 85% 55%;
+}
+
+.green {
+  --theme-primary: 142 76% 36%;
+  --theme-accent: 142 76% 46%;
+}
+
+.red {
+  --theme-primary: 0 72% 51%;
+  --theme-accent: 0 72% 61%;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .contentArea {

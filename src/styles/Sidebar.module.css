@@ -140,6 +140,52 @@
   color: hsl(var(--primary-foreground));
 }
 
+/* Theme variations */
+
+/* Blue theme (default - owner) */
+.blue .logo,
+.logoBlue {
+  background: hsl(214 95% 55%);
+}
+
+.blue .navLink.active,
+.activeBlue.active {
+  background-color: hsl(214 95% 55% / 0.2);
+  color: hsl(214 95% 55%);
+}
+
+/* Green theme (employee) */
+.green .logo,
+.logoGreen {
+  background: hsl(142 76% 36%);
+}
+
+.green .navLink.active,
+.activeGreen.active {
+  background-color: hsl(142 76% 36% / 0.2);
+  color: hsl(142 76% 36%);
+}
+
+.green .navLink:hover {
+  color: hsl(142 76% 46%);
+}
+
+/* Red theme (customer) */
+.red .logo,
+.logoRed {
+  background: hsl(0 72% 51%);
+}
+
+.red .navLink.active,
+.activeRed.active {
+  background-color: hsl(0 72% 51% / 0.2);
+  color: hsl(0 72% 51%);
+}
+
+.red .navLink:hover {
+  color: hsl(0 72% 61%);
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
   .sidebar {

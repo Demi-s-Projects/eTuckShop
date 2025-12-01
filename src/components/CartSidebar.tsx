@@ -7,10 +7,11 @@ import styles from "@/styles/Menu.module.css";
 interface CartSidebarProps {
     isOpen: boolean;
     onClose: () => void;
-    username: string;
+    userId: string;
+    displayName: string;
 }
 
-export default function CartSidebar({ isOpen, onClose, username }: CartSidebarProps) {
+export default function CartSidebar({ isOpen, onClose, userId, displayName }: CartSidebarProps) {
     const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [orderSuccess, setOrderSuccess] = useState(false);
@@ -38,7 +39,8 @@ export default function CartSidebar({ isOpen, onClose, username }: CartSidebarPr
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    Username: username,
+                    userId: userId,
+                    displayName: displayName,
                     OrderContents: orderContents,
                     TotalPrice: totalPrice,
                 }),

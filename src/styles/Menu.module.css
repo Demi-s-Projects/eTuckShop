@@ -116,13 +116,13 @@
 .menuItemPrice {
     font-size: 1.25rem;
     font-weight: 700;
-    color: hsl(var(--primary));
+    color: #dc2626; /* Red theme for customer */
 }
 
 .addButton {
     padding: 8px 16px;
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
+    background: #dc2626; /* Red theme for customer */
+    color: white;
     border: none;
     border-radius: var(--radius);
     cursor: pointer;
@@ -132,7 +132,7 @@
 }
 
 .addButton:hover {
-    background: hsl(var(--accent));
+    background: #b91c1c;
 }
 
 .addButton:disabled {

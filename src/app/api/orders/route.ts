@@ -25,7 +25,7 @@ const ORDERS_COLLECTION = "orders";
  * 
  * Query Parameters:
  * - orderId (optional): If provided, returns a single order matching this ID
- * - username (optional): If provided, returns all orders for this user
+ * - userId (optional): If provided, returns all orders for this user
  * 
  * Returns:
  * - 200: Order(s) found successfully
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
         // Parse URL to extract query parameters
         const { searchParams } = new URL(request.url);
         const orderId = searchParams.get("orderId");
-        const username = searchParams.get("username");
+        const userId = searchParams.get("userId");
 
         // If orderId is provided, fetch a single order
         if (orderId) {
@@ -64,7 +64,8 @@ export async function GET(request: Request) {
             const order: Order = {
                 OrderID: data.OrderID,
                 OrderTime: data.OrderTime.toDate(),
-                Username: data.Username,
+                userId: data.userId,
+                displayName: data.displayName,
                 OrderContents: data.OrderContents,
                 TotalPrice: data.TotalPrice,
             };
@@ -72,11 +73,11 @@ export async function GET(request: Request) {
             return Response.json({ order }, { status: 200 });
         }
 
-        // If username is provided, fetch all orders for that user
-        if (username) {
+        // If userId is provided, fetch all orders for that user
+        if (userId) {
             const snapshot = await adminDB
                 .collection(ORDERS_COLLECTION)
-                .where("Username", "==", username)
+                .where("userId", "==", userId)
                 .orderBy("OrderTime", "desc")
                 .get();
 
@@ -86,7 +87,8 @@ export async function GET(request: Request) {
                 return {
                     OrderID: data.OrderID,
                     OrderTime: data.OrderTime.toDate(),
-                    Username: data.Username,
+                    userId: data.userId,
+                    displayName: data.displayName,
                     OrderContents: data.OrderContents,
                     TotalPrice: data.TotalPrice,
                 };
@@ -107,7 +109,8 @@ export async function GET(request: Request) {
             return {
                 OrderID: data.OrderID,
                 OrderTime: data.OrderTime.toDate(),
-                Username: data.Username,
+                userId: data.userId,
+                displayName: data.displayName,
                 OrderContents: data.OrderContents,
                 TotalPrice: data.TotalPrice,
             };
@@ -127,7 +130,8 @@ export async function GET(request: Request) {
  * POST Handler - Create a new order
  * 
  * Request Body:
- * - Username: string (required) - The customer placing the order
+ * - userId: string (required) - Firebase Auth UID of the customer
+ * - displayName: string (required) - Display name of the customer
  * - OrderContents: OrderItem[] (required) - Array of items being ordered
  * - TotalPrice: number (required) - Total price of the order
  * 
@@ -146,9 +150,9 @@ export async function POST(request: Request) {
         const body: CreateOrderRequest = await request.json();
 
         // Validate required fields
-        if (!body.Username || !body.OrderContents || body.TotalPrice === undefined) {
+        if (!body.userId || !body.displayName || !body.OrderContents || body.TotalPrice === undefined) {
             return Response.json(
-                { error: "Username, OrderContents, and TotalPrice are required" },
+                { error: "userId, displayName, OrderContents, and TotalPrice are required" },
                 { status: 400 }
             );
         }
@@ -178,7 +182,8 @@ export async function POST(request: Request) {
         const orderData = {
             OrderID: nextOrderId,
             OrderTime: FieldValue.serverTimestamp(), // Use server timestamp for consistency
-            Username: body.Username,
+            userId: body.userId,
+            displayName: body.displayName,
             OrderContents: body.OrderContents,
             TotalPrice: body.TotalPrice,
         };
@@ -210,11 +215,11 @@ export async function POST(request: Request) {
  * 
  * Request Body:
  * - OrderID: number (required) - The order to update
- * - Username: string (optional) - New username
+ * - displayName: string (optional) - New display name
  * - OrderContents: OrderItem[] (optional) - New order contents
  * - TotalPrice: number (optional) - New total price
  * 
- * Note: OrderTime cannot be modified as it represents the original order time
+ * Note: OrderTime and userId cannot be modified
  * 
  * Returns:
  * - 200: Order updated successfully
@@ -252,10 +257,10 @@ export async function PUT(request: Request) {
 
         // Build the update object with only provided fields
         // This allows partial updates
-        const updateData: Partial<Pick<Order, "Username" | "OrderContents" | "TotalPrice">> = {};
+        const updateData: Partial<Pick<Order, "displayName" | "OrderContents" | "TotalPrice">> = {};
         
-        if (body.Username !== undefined) {
-            updateData.Username = body.Username;
+        if (body.displayName !== undefined) {
+            updateData.displayName = body.displayName;
         }
         if (body.OrderContents !== undefined) {
             updateData.OrderContents = body.OrderContents;

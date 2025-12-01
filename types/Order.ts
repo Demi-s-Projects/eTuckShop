@@ -24,8 +24,10 @@ export type Order = {
     OrderID: number;
     /** Timestamp when the order was placed */
     OrderTime: Date;
-    /** Username of the customer who placed the order */
-    Username: string;
+    /** Firebase Auth UID of the customer who placed the order */
+    userId: string;
+    /** Display name of the customer (denormalized for convenience) */
+    displayName: string;
     /** Array of items in the order */
     OrderContents: OrderItem[];
     /** Total price of the order */
@@ -39,7 +41,8 @@ export type Order = {
 export type OrderDocument = {
     OrderID: number;
     OrderTime: FirebaseFirestore.Timestamp;
-    Username: string;
+    userId: string;
+    displayName: string;
     OrderContents: OrderItem[];
     TotalPrice: number;
 };
@@ -49,7 +52,8 @@ export type OrderDocument = {
  * OrderID and OrderTime are generated server-side
  */
 export type CreateOrderRequest = {
-    Username: string;
+    userId: string;
+    displayName: string;
     OrderContents: OrderItem[];
     TotalPrice: number;
 };
@@ -60,7 +64,7 @@ export type CreateOrderRequest = {
  */
 export type UpdateOrderRequest = {
     OrderID: number;
-    Username?: string;
+    displayName?: string;
     OrderContents?: OrderItem[];
     TotalPrice?: number;
 };

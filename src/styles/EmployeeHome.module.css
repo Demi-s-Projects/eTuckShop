@@ -1,3 +1,8 @@
+/**
+ * Employee Dashboard Styles
+ * Green theme for employee role
+ */
+
 .container {
   padding: 20px;
   color: #1a1a1a;
@@ -58,7 +63,7 @@
 .statValue {
   font-size: 24px;
   font-weight: bold;
-  color: #2563eb; /* Blue accent for owner */
+  color: #16a34a; /* Green accent for employee */
 }
 
 .loadingContainer {

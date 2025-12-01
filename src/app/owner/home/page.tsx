@@ -54,7 +54,7 @@ export default function OwnerHome() {
     }
 
     return (
-        <Dashboard user={user}>
+        <Dashboard user={user} theme="blue">
             <div className={styles.container}>
                 <h1 className={styles.title}>Owner Dashboard</h1>
                 <p className={styles.welcomeText}>Welcome back, {user?.name || 'Owner'}!</p>

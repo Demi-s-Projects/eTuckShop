@@ -9,6 +9,7 @@
  * - Fixed top bar
  * - Scrollable content area
  * - User information display
+ * - Role-based theming (owner: blue, employee: green, customer: red)
  */
 
 "use client";
@@ -18,6 +19,8 @@ import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import styles from '@/styles/Dashboard.module.css';
 
+export type ThemeColor = 'blue' | 'green' | 'red';
+
 interface DashboardProps {
   children: ReactNode;
   user?: {
@@ -25,9 +28,10 @@ interface DashboardProps {
     role: string;
     email?: string;
   };
+  theme?: ThemeColor;
 }
 
-const Dashboard = ({ children, user }: DashboardProps) => {
+const Dashboard = ({ children, user, theme = 'blue' }: DashboardProps) => {
   // State to manage the collapsed state of the sidebar
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -39,8 +43,11 @@ const Dashboard = ({ children, user }: DashboardProps) => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
+  // Determine the role for navigation items
+  const role = user?.role?.toLowerCase() || 'owner';
+
   return (
-    <div className={styles.dashboardContainer}>
+    <div className={`${styles.dashboardContainer} ${styles[theme]}`}>
       {/* 
         Sidebar Navigation 
         Displays the main navigation links and handles the collapsed state.
@@ -48,6 +55,8 @@ const Dashboard = ({ children, user }: DashboardProps) => {
       <Sidebar 
         isCollapsed={isSidebarCollapsed} 
         onToggle={handleToggleSidebar}
+        role={role}
+        theme={theme}
       />
       
       {/* Main Content Wrapper */}
