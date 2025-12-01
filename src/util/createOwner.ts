@@ -1,9 +1,10 @@
 import { adminAuth } from "@/firebase/admin";
 
-// Simple email regex (good enough for input validation)
+// Simple email regex for email validation
 const emailRegex = /^[^\s@]+@[^\s@]+.[^\s@]+$/;
 
 async function main() {
+    //gets arguments from command line
 	const email = process.argv[2];
 	const password = process.argv[3];
 	const firstName = process.argv[4];
@@ -15,11 +16,13 @@ async function main() {
 		process.exit(1);
 	}
 
+    //validates email
 	if (!emailRegex.test(email)) {
 		console.error("Invalid email format.");
 		process.exit(1);
 	}
 
+    //checks password length
 	if (password.length < 6) {
 		console.error("Password must be at least 6 characters.");
 		process.exit(1);
@@ -28,15 +31,20 @@ async function main() {
 	try {
 		console.log("Creating Firebase user...");
 		const displayName = `${firstName} ${lastName}`.trim();
+
+        //creates the user from this script
 		const user = await adminAuth.createUser({ email, password, displayName });
 		console.log(`User created: UID=${user.uid} (displayName=${displayName})`);
 
 		console.log("Assigning role...");
+
+        //attaches the owner role to the user
 		await adminAuth.setCustomUserClaims(user.uid, { role: "owner" });
 		console.log("Owner role assigned");
 		process.exit(0);
+
 	} catch (errUnknown) {
-		
+        
         //Claude error handling to get something sensible out of an error message
 		const err = errUnknown as unknown;
 		// extract possible code/message safely without using `any`

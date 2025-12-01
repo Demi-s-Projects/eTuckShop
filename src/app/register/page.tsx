@@ -9,30 +9,39 @@ import { auth } from "@/firebase/config";
 
 import { authStyles } from "@/app/auth.module";
 
+// Customer registration page — collects name/email/password, creates
+// an account in Firebase Auth, assigns the `customer` role via the
+// backend `/api/users` endpoint and establishes a session cookie.
 export default function CustomerRegister() {
 	const router = useRouter();
+
+	// Form fields
 	const [email, setEmail] = useState("");
 	const [firstName, setFirstName] = useState("");
 	const [lastName, setLastName] = useState("");
 	const [password, setPassword] = useState("");
+
+	// Firebase hook for creating users with email/password
 	const [createUserWithEmailAndPassword] = useCreateUserWithEmailAndPassword(auth);
+
+	// Error alerts
 	const [signupError, setSignupError] = useState("");
 
 	async function handleRegister(e: FormEvent<HTMLFormElement>) {
 		e.preventDefault();
 		setSignupError("");
+
 		try {
+			//Create a client side Firebase Auth user 
 			const UserCred = await createUserWithEmailAndPassword(email, password);
 			const user = UserCred?.user;
 			if (!user) throw new Error("No user returned from Firebase");
 
-			// update display name on firebase user
-			try {
-				await updateProfile(user, { displayName: `${firstName} ${lastName}` });
-			} catch (e) {
-				console.warn("Failed to update profile displayName:", e);
-			}
+			//Update the user's displayName in Firebase Auth so the
+			//    backend and other clients can read a friendly name.
+			await updateProfile(user, { displayName: `${firstName} ${lastName}` });
 
+			//Call backend to assign a role to the user
 			const token = await user?.getIdToken();
 			const res = await fetch("/api/users", {
 				method: "POST",
@@ -40,35 +49,37 @@ export default function CustomerRegister() {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${token}`,
 				},
-				body: JSON.stringify({ role: "customer", firstName, lastName, email }),
+				body: JSON.stringify({ role: "customer"}),
 			});
 
 			if (!res.ok) throw new Error("Failed to create user role");
-			
-			//refresh token to get new token updated with role
+
+			//Refresh token so it contains the new role
 			const freshToken = await user?.getIdToken(true);
 
-			//Create session cookie
+			//Exchange the refreshed token for a session cookie
 			const sessionRes = await fetch("/api/session", {
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({ token: freshToken }), 
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ token: freshToken }),
 			});
 
 			if (!sessionRes.ok) {
 				throw new Error("Failed to create session");
 			}
 
+			//naviagate to home page
 			router.replace("/customer/home");
+
 			setFirstName("");
 			setLastName("");
 			setEmail("");
 			setPassword("");
 		} catch (err) {
+			// On failure: attempt to clean up any partially created auth user,
+			// sign out the client, and bring up a friendly message to the UI.
 			const errorMessage = err instanceof Error ? err.message : "An error occurred during sign up";
-			await auth.currentUser?.delete(); // cleanup
+			await auth.currentUser?.delete(); 
 			await auth.signOut();
 			setSignupError(errorMessage);
 			console.error(err);

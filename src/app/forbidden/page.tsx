@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { authStyles } from "@/app/auth.module";
 
+
+//Page to show people who end up on the wrong side of the system
 export default function ForbiddenPage() {
 	return (
 		<div style={authStyles.container}>

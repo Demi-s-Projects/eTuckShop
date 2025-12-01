@@ -8,27 +8,48 @@ import { auth } from "@/firebase/config";
 
 import { authStyles } from "@/app/auth.module";
 
+// Customer login page - Signs client in with email and password and
+// exchanges the user token for a server session cookie, then redirects
 export default function CustomerLogin() {
 	const router = useRouter();
+
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+
+	// Firebase sign-in helper from react-firebase-hooks
 	const [signInWithEmailAndPassword] = useSignInWithEmailAndPassword(auth);
-	// watch auth state so we can redirect if already signed in
+
+	// error alerts
+	const [loginError, setLoginError] = useState("");
+
+	// Watch global auth state so we can detect if the user is already
+	// signed in and redirect appropriately
 	const [currentUser, authLoading, _authError] = useAuthState(auth);
-	// reference _authError to avoid unused-variable lint warnings
+	// Use `void` to acknowledge the unused `_authError` so typescript doesnt shoot me
 	void _authError;
 
+	// When auth state settles, check the user's custom claims and
+	// redirect them to the correct home page. We guard with a `mounted`
+	// flag to avoid performing navigation after the component unmounts.
 	useEffect(() => {
 		let mounted = true;
 		async function checkAndRedirect() {
-			if (!mounted) return;
+			if (!mounted) return; // bail out when component unmounts
 			if (!authLoading && currentUser) {
 				try {
+					// force-refresh token so we get latest custom claims
 					const tokenResult = await currentUser.getIdTokenResult(true);
 					const role = tokenResult.claims.role;
-					if (role === "customer") router.push("/customer/home");
-					else if (role === "owner") router.push("/owner/home");
+					if (role === "customer") {
+						router.replace("/customer/home");
+					} else if (role === "owner") {
+						router.replace("/owner/home");
+					} else {
+						throw new Error("Invalid user type found");
+					}
 				} catch (err) {
+					// If anything goes wrong reading claims, sign the client out
+					// to ensure we don't leave a partially-authenticated UI state.
 					console.error("Error checking user claims:", err);
 					await auth.signOut();
 				}
@@ -39,21 +60,25 @@ export default function CustomerLogin() {
 			mounted = false;
 		};
 	}, [currentUser, authLoading, router]);
-	const [loginError, setLoginError] = useState("");
 
 	async function handleLogin(e: FormEvent) {
 		e.preventDefault();
+
+		// Clear any previous error shown to the user
 		setLoginError("");
+
 		try {
-			//check if already logged in then take them here
+			// Sign in with Firebase client SDK using email/password
 			const UserCred = await signInWithEmailAndPassword(email, password);
 			const user = UserCred?.user;
 			if (!user) throw new Error("Failed to login user");
 
+			// Obtain the role from the user token
 			const token = await user.getIdToken(true);
 			const tokenResult = await user.getIdTokenResult(true);
 			const role = tokenResult.claims.role;
 
+			// Exchange the ID token for a server created session cookie
 			const sessionRes = await fetch("/api/session", {
 				method: "POST",
 				headers: {
@@ -63,9 +88,11 @@ export default function CustomerLogin() {
 			});
 
 			if (!sessionRes.ok) {
+				// If the backend failed to create a session, abort the flow
 				throw new Error("Failed to create session");
 			}
 
+			// Redirect the user based on their role 
 			if (role === "customer") {
 				router.replace("/customer/home");
 			} else if (role === "owner") {
@@ -73,9 +100,12 @@ export default function CustomerLogin() {
 			} else {
 				throw new Error("Invalid user type found");
 			}
+
 			setEmail("");
 			setPassword("");
 		} catch (err) {
+			// On failure: attempt to clean up any partially authenticated user,
+			// sign out the client, and bring up a friendly message to the UI.
 			const errorMessage = err instanceof Error ? err.message : "An error occurred during sign up";
 			await auth.signOut();
 			setLoginError(errorMessage);
