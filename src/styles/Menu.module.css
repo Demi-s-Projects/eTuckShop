@@ -171,6 +171,90 @@
   z-index: 10;
 }
 
+.filterGroup {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.filterIcon {
+    color: #6b7280;
+}
+
+.clearFiltersButton {
+    margin-top: 10px;
+    padding: 8px 14px;
+    background-color: white;
+    color: #374151; 
+    border: 2px solid #e5e7eb; 
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.clearFiltersButton:hover {
+    background-color: #f9fafb; 
+    border-color: #d1d5db;      
+}
+
+.clearFiltersButton:active {
+    background-color: #f3f4f6;  
+}
+
+
+.clearFiltersButton:hover {
+    background-color: #bbb;
+}
+
+/*Filter Bar Styles*/
+
+.filterBar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.searchInput {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.filterSelect {
+  padding: 10px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.typeFilterContainer {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.typeButton {
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: #f2f4f7;
+  border: 1px solid #d0d7de;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.activeTypeButton {
+  background: #e3e9ff;
+  border-color: #3b68ff;
+  color: #2447d8;
+  font-weight: 600;
+}
+
 
 /* Cart Sidebar Styles */
 .cartOverlay {

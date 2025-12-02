@@ -19,8 +19,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase/config";
 
-
-
 function mapCategory(cat: InventoryCategory): MenuItem["category"] {
     switch (cat) {
         case "snack":
@@ -49,6 +47,36 @@ function MenuContent() {
     const [displayName, setDisplayName] = useState<string>("");
     const [loading, setLoading] = useState(true);
 
+        // Filters (with localStorage persistence)
+    const [search, setSearch] = useState("");
+    const [filterTypes, setFilterTypes] = useState<string[]>(
+    typeof window !== "undefined"
+        ? JSON.parse(localStorage.getItem("filterTypes") || "[]")
+        : []
+    );
+    const [priceSort, setPriceSort] = useState(
+        typeof window !== "undefined"
+        ? localStorage.getItem("priceSort") || "default"
+        : "default"
+    );
+    const [arrivalSort, setArrivalSort] = useState(
+        typeof window !== "undefined"
+        ? localStorage.getItem("arrivalSort") || "default"
+        : "default"
+    );
+
+    {/*const [userId, setUserId] = useState("");
+    const [displayName, setDisplayName] = useState("Guest"); */}
+
+    // Persist filter selections
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+        localStorage.setItem("filterTypes", JSON.stringify(filterTypes));
+        localStorage.setItem("priceSort", priceSort);
+        localStorage.setItem("arrivalSort", arrivalSort);
+        }
+    }, [filterTypes, priceSort, arrivalSort]);
+
     useEffect(() => {
     async function loadMenuItems() {
         try {
@@ -66,6 +94,7 @@ function MenuContent() {
                     category: mapCategory(data.category),
                     lowStock: data.status === "low stock",
                     available: data.status === "in stock" || data.status == "low stock",
+                    lastUpdated: data.lastUpdated || null,
                 };
             });
 
@@ -80,6 +109,31 @@ function MenuContent() {
 
     loadMenuItems();
 }, []);
+
+    // Apply filters
+    const filteredItems = menuItems
+        .filter((item) =>
+        item.name.toLowerCase().includes(search.toLowerCase())
+        )
+        .filter((item) =>
+        filterTypes.length === 0 ? true : filterTypes.includes(item.category)
+        )
+
+        .sort((a, b) => {
+        if (priceSort === "low") return a.price - b.price;
+        if (priceSort === "high") return b.price - a.price;
+        return 0;
+        })
+        .sort((a, b) => {
+        if (arrivalSort === "new")
+            return new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime();
+
+        if (arrivalSort === "old")
+            return new Date(a.lastUpdated || 0).getTime() - new Date(b.lastUpdated || 0).getTime();
+
+         return 0;
+});
+
     /*
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -101,25 +155,21 @@ function MenuContent() {
         });
 
         return () => unsubscribe();
-    }, []); */
+    }, []); 
 
-    // Group menu items by category
-    const categories = menuItems.reduce((acc, item) => {
-    if (!acc[item.category]) acc[item.category] = [];
-    acc[item.category].push(item);
-    return acc;
-}, {} as Record<string, MenuItem[]>);
+   */
+     const categories = filteredItems.reduce((acc, item) => {
+        if (!acc[item.category]) acc[item.category] = [];
+        acc[item.category].push(item);
+        return acc;
+    }, {} as Record<string, MenuItem[]>);
 
-    if (loading || itemsLoading) {
-        return (
-            <div className={customerStyles.loadingContainer}>
-                Loading...
-            </div>
-        );
+    if (itemsLoading) {
+        return <div className={customerStyles.loadingContainer}>Loading...</div>;
     }
-
     return (
-        <Dashboard user={user} theme="red">
+          <Dashboard user={{ name: "Customer", role: "Customer" }} theme="red">
+        {/*</Dashboard><Dashboard user={user} theme="red"> */}
             <div className={customerStyles.container}>
                 {/* Top action bar with cart */}
                 <div className={customerStyles.topActions}>
@@ -132,6 +182,84 @@ function MenuContent() {
                             <span className={customerStyles.cartBadge}>{totalItems}</span>
                         )}
                     </button>
+                </div>
+                {/* FILTER BAR */}
+                <div className={styles.filterBar}>
+
+                {/* SEARCH LABEL */}
+                <label className={styles.sectionLabel}>🔍 Search</label>
+
+                <input
+                    className={styles.searchInput}
+                    type="text"
+                    placeholder="Search menu items..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                />
+
+                {/* FILTER LABEL */}
+                <label className={styles.sectionLabel}>🔽 Filter</label>
+
+                <select
+                    className={styles.filterSelect}
+                    value={priceSort}
+                    onChange={(e) => setPriceSort(e.target.value)}
+                >
+                    <option value="default">Price: Default</option>
+                    <option value="low">Price: Low → High</option>
+                    <option value="high">Price: High → Low</option>
+                </select>
+
+                <select
+                    className={styles.filterSelect}
+                    value={arrivalSort}
+                    onChange={(e) => setArrivalSort(e.target.value)}
+                >
+                    <option value="default">Arrival: Default</option>
+                    <option value="new">Newest first</option>
+                    <option value="old">Oldest first</option>
+                </select>
+
+                <div className={styles.typeFilterContainer}>
+                    {["Food", "Drinks", "Snacks", "Health and Wellness", "Home Care"].map((type) => {
+                        const selected = filterTypes.includes(type);
+
+                        return (
+                            <button
+                                key={type}
+                                className={`${styles.typeButton} ${selected ? styles.activeTypeButton : ""}`}
+                                onClick={() => {
+                                    if (selected) {
+                                        // REMOVE from selection
+                                        setFilterTypes(filterTypes.filter((t) => t !== type));
+                                    } else {
+                                        // ADD to selection
+                                        setFilterTypes([...filterTypes, type]);
+                                    }
+                                }}
+                            >
+                                {type}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <button
+                                className={styles.clearFiltersButton}
+                                onClick={() => {
+                                    setSearch("");
+                                    setPriceSort("default");
+                                    setArrivalSort("default");
+                                    setFilterTypes([]);
+                                    localStorage.removeItem("filterTypes");
+                                    localStorage.removeItem("priceSort");
+                                    localStorage.removeItem("arrivalSort");
+                                }}
+                            >
+                                ❌ Clear All Filters
+                </button>
+
+
                 </div>
 
                 <h1 className={customerStyles.title}>Menu</h1>
@@ -181,7 +309,7 @@ function MenuContent() {
                                         {/* Out of stock */}
                                         {!item.available && (
                                             <span className={styles.unavailableLabel}>
-                                                Unavailable
+                                                Out of Stock
                                             </span>
                                         )}
 

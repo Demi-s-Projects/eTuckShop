@@ -21,6 +21,8 @@ export type MenuItem = {
     available: boolean;
     /**Whether item is low in stock */
     lowStock?: boolean;
+    /**When the item was last updated */
+    lastUpdated?: string | null;
 };
 
 /**
