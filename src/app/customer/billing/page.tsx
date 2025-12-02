@@ -129,7 +129,7 @@ function BillingContent() {
     useEffect(() => {
         const calculation = orderItems.map((item) => {
             // Apply 10% discount if quantity >= 3
-            const discount = item.quantity >= 3 ? item.price * 0.1 : 0;
+            const discount = item.quantity >= 10 ? item.price * 0.1 : 0;
             const discountedPrice = item.price - discount;
             const totalLine = discountedPrice * item.quantity;
             return { ...item, discount, discountedPrice, totalLine };
