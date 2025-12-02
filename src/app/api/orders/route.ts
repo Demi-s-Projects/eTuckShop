@@ -152,6 +152,57 @@ function formatInventoryErrorMessage(errors: InventoryError[]): string {
 }
 
 /**
+ * Restores stock to inventory when an order is cancelled
+ * Uses a Firestore batch for atomic updates
+ * 
+ * @param orderItems - Array of items to restore to inventory
+ * @returns Object with success status and any error message
+ */
+async function restoreInventoryStock(orderItems: OrderItem[]): Promise<{ success: boolean; error?: string }> {
+    const batch = adminDB.batch();
+    
+    for (const item of orderItems) {
+        try {
+            const inventoryRef = adminDB.collection(INVENTORY_COLLECTION).doc(item.itemId);
+            const inventoryDoc = await inventoryRef.get();
+            
+            if (!inventoryDoc.exists) {
+                // Item no longer exists, skip restoration but log it
+                console.warn(`Cannot restore stock for "${item.name}" (${item.itemId}) - item not found in inventory`);
+                continue;
+            }
+            
+            const inventoryData = inventoryDoc.data();
+            const currentQuantity = inventoryData?.quantity ?? 0;
+            const minStockThreshold = inventoryData?.minStockThreshold ?? 10;
+            const newQuantity = currentQuantity + item.quantity;
+            const newStatus = calculateInventoryStatus(newQuantity, minStockThreshold);
+            
+            // Queue the update in the batch
+            batch.update(inventoryRef, {
+                quantity: newQuantity,
+                status: newStatus,
+                lastUpdated: new Date().toISOString(),
+            });
+        } catch (err) {
+            console.error(`Error restoring stock for ${item.name}:`, err);
+        }
+    }
+    
+    // Commit all inventory updates atomically
+    try {
+        await batch.commit();
+        return { success: true };
+    } catch (err) {
+        console.error("Failed to restore inventory:", err);
+        return { 
+            success: false, 
+            error: 'Failed to restore inventory stock.',
+        };
+    }
+}
+
+/**
  * GET Handler - Retrieve orders
  * 
  * Query Parameters:
@@ -413,6 +464,10 @@ export async function PUT(request: Request) {
             );
         }
 
+        const doc = snapshot.docs[0];
+        const currentOrder = doc.data();
+        const currentStatus = currentOrder.status;
+
         // Build the update object with only provided fields
         // This allows partial updates
         const updateData: Partial<Pick<Order, "displayName" | "OrderContents" | "TotalPrice" | "status">> = {};
@@ -438,8 +493,23 @@ export async function PUT(request: Request) {
             );
         }
 
+        // Check if order is being cancelled - restore inventory stock
+        // Only restore if the order wasn't already cancelled
+        if (body.status === "cancelled" && currentStatus !== "cancelled" && currentStatus !== "cancelled-acknowledged") {
+            const orderContents = currentOrder.OrderContents as OrderItem[];
+            const restoreResult = await restoreInventoryStock(orderContents);
+            
+            if (restoreResult.success) {
+                console.log(`Inventory restored for cancelled order ${body.OrderID}`);
+            } else {
+                console.warn(`Failed to restore inventory for order ${body.OrderID}: ${restoreResult.error}`);
+                // Continue with cancellation even if stock restore fails
+                // The order should still be marked as cancelled
+            }
+        }
+
         // Update the document in Firestore
-        const docRef = snapshot.docs[0].ref;
+        const docRef = doc.ref;
         await docRef.update(updateData);
 
         console.log(`Order ${body.OrderID} updated successfully`);
