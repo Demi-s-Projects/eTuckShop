@@ -15,9 +15,11 @@
  */
 
 "use client";
-
+import { useState, useEffect } from "react";
+import { auth } from "@/firebase/config";
 import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
+import { onAuthStateChanged } from "firebase/auth";
 import type { OrderStatus, OrderItem } from "@/types/Order";
 import {
     useOrderManagement,
@@ -28,6 +30,7 @@ import {
 } from "@/hooks/useOrderManagement";
 
 export default function OwnerOrdersPage() {
+    const [user, setUser] = useState<{name: string, role: string, email?: string} | undefined>(undefined);
     // Use the shared order management hook
     const {
         loading,
@@ -40,8 +43,27 @@ export default function OwnerOrdersPage() {
         filteredOrders,
     } = useOrderManagement();
 
+      useEffect(() => {
+        // Subscribe to authentication state changes
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            if (firebaseUser) {
+                // Map Firebase user to Dashboard user format
+                setUser({
+                    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Owner',
+                    role: 'Owner',
+                    email: firebaseUser.email || undefined
+                });
+            } else {
+                setUser(undefined);
+            }
+        });
+
+        // Cleanup subscription on unmount
+        return () => unsubscribe();
+    }, []);
+
     return (
-        <Dashboard theme="blue">
+        <Dashboard theme="blue" user={user}>
             <div className={styles.container}>
                 <div className={styles.headerRow}>
                     <h1 className={styles.title}>Order Management</h1>
