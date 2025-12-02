@@ -5,7 +5,7 @@
  * It uses the Dashboard layout component with a red theme.
  * 
  * Features:
- * - Authentication check (via onAuthStateChanged)
+ * - Authentication via centralized AuthContext
  * - Dashboard layout wrapper with red theme
  * - Cart button with badge showing item count
  * - Quick access to menu and orders
@@ -13,52 +13,26 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { auth } from "@/firebase/config";
-import { onAuthStateChanged } from "firebase/auth";
+import { useAuth, formatDashboardUser } from "@/context/AuthContext";
 import Dashboard from "@/components/Dashboard";
 import { useCart } from "@/context/CartContext";
 import CartSidebar from "@/components/CartSidebar";
 import styles from "@/styles/CustomerHome.module.css";
 
 function CustomerHomeContent() {
-    // State to store the authenticated user's information
-    const [user, setUser] = useState<{name: string, role: string, email?: string} | undefined>(undefined);
-    const [userId, setUserId] = useState<string>("");
-    const [displayName, setDisplayName] = useState<string>("");
-    // State to handle loading status while checking authentication
-    const [loading, setLoading] = useState(true);
+    // Get auth state from centralized context
+    const { user: authUser, loading } = useAuth();
+    
+    // Format user for Dashboard component
+    const user = formatDashboardUser(authUser, "Customer");
+    
     // Cart sidebar state
     const [isCartOpen, setIsCartOpen] = useState(false);
     
     // Get cart info
     const { totalItems } = useCart();
-
-    useEffect(() => {
-        // Subscribe to authentication state changes
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-            if (firebaseUser) {
-                const name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Customer';
-                // Map Firebase user to Dashboard user format
-                setUser({
-                    name: name,
-                    role: 'Customer',
-                    email: firebaseUser.email || undefined
-                });
-                setUserId(firebaseUser.uid);
-                setDisplayName(name);
-            } else {
-                setUser(undefined);
-                setUserId("");
-                setDisplayName("");
-            }
-            setLoading(false);
-        });
-
-        // Cleanup subscription on unmount
-        return () => unsubscribe();
-    }, []);
 
     // Show loading state while checking auth
     if (loading) {
@@ -117,8 +91,8 @@ function CustomerHomeContent() {
             <CartSidebar
                 isOpen={isCartOpen}
                 onClose={() => setIsCartOpen(false)}
-                userId={userId}
-                displayName={displayName}
+                userId={authUser?.uid || ""}
+                displayName={authUser?.displayName || "Guest"}
             />
         </Dashboard>
     );

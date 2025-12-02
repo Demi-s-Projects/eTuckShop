@@ -5,44 +5,23 @@
  * It uses the Dashboard layout component to provide navigation and a top bar.
  * 
  * Features:
- * - Authentication check (via onAuthStateChanged)
+ * - Authentication via centralized AuthContext
  * - Dashboard layout wrapper
  * - Owner-specific content area
  */
 
 "use client";
 
-import { useEffect, useState } from "react";
-import { auth } from "@/firebase/config";
-import { onAuthStateChanged } from "firebase/auth";
+import { useAuth, formatDashboardUser } from "@/context/AuthContext";
 import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/OwnerHome.module.css";
 
 export default function OwnerHome() {
-    // State to store the authenticated user's information
-    const [user, setUser] = useState<{name: string, role: string, email?: string} | undefined>(undefined);
-    // State to handle loading status while checking authentication
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        // Subscribe to authentication state changes
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-            if (firebaseUser) {
-                // Map Firebase user to Dashboard user format
-                setUser({
-                    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Owner',
-                    role: 'Owner', // Role is hardcoded for this specific page
-                    email: firebaseUser.email || undefined
-                });
-            } else {
-                setUser(undefined);
-            }
-            setLoading(false);
-        });
-
-        // Cleanup subscription on unmount
-        return () => unsubscribe();
-    }, []);
+    // Get auth state from centralized context
+    const { user: authUser, loading } = useAuth();
+    
+    // Format user for Dashboard component
+    const user = formatDashboardUser(authUser, "Owner");
 
     // Show loading state while checking auth
     if (loading) {

@@ -19,7 +19,7 @@
  */
 
 "use client";
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from "react";
 import type { MenuItem, CartItem } from "@/types/MenuItem";
 import { auth } from "@/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
@@ -157,8 +157,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
     }, [userId]);
 
-    const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-    const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    // Memoize derived values to prevent recalculation on every render
+    const totalItems = useMemo(() => 
+        items.reduce((sum, item) => sum + item.quantity, 0), 
+        [items]
+    );
+    const totalPrice = useMemo(() => 
+        items.reduce((sum, item) => sum + item.price * item.quantity, 0), 
+        [items]
+    );
 
     return (
         <CartContext.Provider

@@ -14,9 +14,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
-import { auth } from "@/firebase/config";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { useAuth, formatDashboardUser } from "@/context/AuthContext";
 import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
 import type { OrderStatus, OrderItem } from "@/types/Order";
@@ -31,17 +29,8 @@ import {
 } from "@/hooks/useOrderManagement";
 
 export default function CustomerOrdersPage() {
-    const [user, setUser] = useState<User | null>(null);
-    const [authLoading, setAuthLoading] = useState(true);
-
-    // Listen for auth state changes
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            setUser(currentUser);
-            setAuthLoading(false);
-        });
-        return () => unsubscribe();
-    }, []);
+    // Get auth state from centralized context
+    const { user: authUser, loading: authLoading } = useAuth();
 
     // Use the shared order management hook with userId filter
     const {
@@ -53,7 +42,7 @@ export default function CustomerOrdersPage() {
         fetchOrders,
         updateOrderStatus,
         filteredOrders,
-    } = useOrderManagement({ userId: user?.uid || null });
+    } = useOrderManagement({ userId: authUser?.uid || null });
 
     /**
      * Cancel an order (wrapper around updateOrderStatus)
@@ -79,7 +68,7 @@ export default function CustomerOrdersPage() {
         );
     }
 
-    if (!user) {
+    if (!authUser) {
         return (
             <Dashboard theme="red" user={{ name: "Guest", role: "customer" }}>
                 <div className={styles.container}>
@@ -90,11 +79,7 @@ export default function CustomerOrdersPage() {
     }
 
     // Create user object for Dashboard
-    const dashboardUser = {
-        name: user.displayName || user.email?.split('@')[0] || 'Customer',
-        role: 'customer',
-        email: user.email || undefined
-    };
+    const dashboardUser = formatDashboardUser(authUser, "Customer");
 
     return (
         <Dashboard theme="red" user={dashboardUser}>

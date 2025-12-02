@@ -6,29 +6,30 @@
  */
 
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useCart } from "@/context/CartContext";
 import { useMenu } from "@/context/MenuContext";
+import { useAuth, formatDashboardUser } from "@/context/AuthContext";
 import CartSidebar from "@/components/CartSidebar";
 import Dashboard from "@/components/Dashboard";
 import type { MenuItem } from "@/types/MenuItem";
 import styles from "@/styles/Menu.module.css";
 import customerStyles from "@/styles/CustomerHome.module.css";
-import { auth } from "@/firebase/config";
-import { onAuthStateChanged } from "firebase/auth";
 
 function MenuContent() {
     // Get cached menu items from context
     const { menuItems, loading: itemsLoading } = useMenu();
+    
+    // Get auth state from centralized context
+    const { user: authUser, loading: authLoading } = useAuth();
+    
+    // Format user for Dashboard component
+    const user = formatDashboardUser(authUser, "Customer");
 
     const { addItem, totalItems } = useCart();
     const [isCartOpen, setIsCartOpen] = useState(false);
-    const [user, setUser] = useState<{name: string, role: string, email?: string} | undefined>(undefined);
-    const [userId, setUserId] = useState<string>("");
-    const [displayName, setDisplayName] = useState<string>("");
-    const [loading, setLoading] = useState(true);
 
-        // Filters (with localStorage persistence)
+    // Filters (with localStorage persistence)
     const [search, setSearch] = useState("");
     const [filterTypes, setFilterTypes] = useState<string[]>(
     typeof window !== "undefined"
@@ -46,9 +47,6 @@ function MenuContent() {
         : "default"
     );
 
-    {/*const [userId, setUserId] = useState("");
-    const [displayName, setDisplayName] = useState("Guest"); */}
-
     // Persist filter selections
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -58,89 +56,37 @@ function MenuContent() {
         }
     }, [filterTypes, priceSort, arrivalSort]);
 
-    // Apply filters
-    const filteredItems = menuItems
-        .filter((item) =>
-        item.name.toLowerCase().includes(search.toLowerCase())
-        )
-        .filter((item) =>
-        filterTypes.length === 0 ? true : filterTypes.includes(item.category)
-        )
+    // Apply filters - memoized to prevent recalculation on unrelated state changes
+    const filteredItems = useMemo(() => 
+        menuItems
+            .filter((item) =>
+                item.name.toLowerCase().includes(search.toLowerCase())
+            )
+            .filter((item) =>
+                filterTypes.length === 0 ? true : filterTypes.includes(item.category)
+            )
+            .sort((a, b) => {
+                if (priceSort === "low") return a.price - b.price;
+                if (priceSort === "high") return b.price - a.price;
+                return 0;
+            })
+            .sort((a, b) => {
+                if (arrivalSort === "new")
+                    return new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime();
+                if (arrivalSort === "old")
+                    return new Date(a.lastUpdated || 0).getTime() - new Date(b.lastUpdated || 0).getTime();
+                return 0;
+            }),
+        [menuItems, search, filterTypes, priceSort, arrivalSort]
+    );
 
-        .sort((a, b) => {
-        if (priceSort === "low") return a.price - b.price;
-        if (priceSort === "high") return b.price - a.price;
-        return 0;
-        })
-        .sort((a, b) => {
-        if (arrivalSort === "new")
-            return new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime();
-
-        if (arrivalSort === "old")
-            return new Date(a.lastUpdated || 0).getTime() - new Date(b.lastUpdated || 0).getTime();
-
-         return 0;
-});
-
-useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-        if (firebaseUser) {
-            const name =
-                firebaseUser.displayName ||
-                firebaseUser.email?.split("@")[0] ||
-                "Customer";
-
-            setUser({
-                name: name,
-                role: "Customer",
-                email: firebaseUser.email || undefined,
-            });
-
-            setUserId(firebaseUser.uid);
-            setDisplayName(name);
-        } else {
-            setUser(undefined);
-            setUserId("");
-            setDisplayName("Guest");
-        }
-
-        setLoading(false);
-    });
-
-    return () => unsubscribe();
-}, []);
-
-    /*
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-            if (firebaseUser) {
-                const name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Customer';
-                setUser({
-                    name: name,
-                    role: 'Customer',
-                    email: firebaseUser.email || undefined
-                });
-                setUserId(firebaseUser.uid);
-                setDisplayName(name);
-            } else {
-                setUser(undefined);
-                setUserId("");
-                setDisplayName("Guest");
-            }
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, []); 
-
-   */
      const categories = filteredItems.reduce((acc, item) => {
         if (!acc[item.category]) acc[item.category] = [];
         acc[item.category].push(item);
         return acc;
     }, {} as Record<string, MenuItem[]>);
 
-    if (itemsLoading) {
+    if (itemsLoading || authLoading) {
         return <div className={customerStyles.loadingContainer}>Loading...</div>;
     }
     return (
@@ -320,8 +266,8 @@ useEffect(() => {
             <CartSidebar
                 isOpen={isCartOpen}
                 onClose={() => setIsCartOpen(false)}
-                userId={userId}
-                displayName={displayName}
+                userId={authUser?.uid || ""}
+                displayName={authUser?.displayName || "Guest"}
             />
         </Dashboard>
     );

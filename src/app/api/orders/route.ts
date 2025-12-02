@@ -13,7 +13,7 @@
  * All operations use Firebase Admin SDK to bypass client-side security rules.
  */
 
-import { adminDB } from "@/firebase/admin";
+import { adminDB, adminAuth } from "@/firebase/admin";
 import type { Order, CreateOrderRequest, UpdateOrderRequest, OrderItem } from "@/types/Order";
 import { FieldValue } from "firebase-admin/firestore";
 import type { InventoryStatus } from "@/app/api/inventory/inventory";
@@ -21,6 +21,62 @@ import type { InventoryStatus } from "@/app/api/inventory/inventory";
 // Firestore collection reference for orders
 const ORDERS_COLLECTION = "orders";
 const INVENTORY_COLLECTION = "inventory";
+
+/**
+ * Verifies the user's session and returns user info or error
+ * Supports both session cookies and Authorization bearer tokens
+ */
+async function verifyAuth(request: Request) {
+    try {
+        const cookieHeader = request.headers.get("cookie");
+        let token: string | undefined;
+
+        // Check for session cookie first
+        if (cookieHeader) {
+            const cookies = cookieHeader.split(";").map((c) => c.trim());
+            const sessionCookie = cookies.find((c) => c.startsWith("session="));
+            if (sessionCookie) {
+                token = sessionCookie.split("=")[1];
+            }
+        }
+
+        // Fallback to Authorization header
+        if (!token) {
+            const authHeader = request.headers.get("authorization");
+            if (authHeader?.startsWith("Bearer ")) {
+                token = authHeader.split(" ")[1];
+            }
+        }
+
+        if (!token) {
+            return { error: "Unauthorized", status: 401 };
+        }
+
+        // Verify the session cookie
+        const decoded = await adminAuth.verifySessionCookie(token, true);
+        return { user: decoded };
+    } catch (error) {
+        console.error("Auth verification error:", error);
+        return { error: "Invalid session", status: 401 };
+    }
+}
+
+/**
+ * Verifies the user has employee or owner role
+ */
+async function verifyEmployeeOrOwner(request: Request) {
+    const authResult = await verifyAuth(request);
+    if ("error" in authResult) {
+        return authResult;
+    }
+    
+    const userRole = authResult.user.role;
+    if (userRole !== "employee" && userRole !== "owner") {
+        return { error: "Forbidden: Employee or Owner access required", status: 403 };
+    }
+    
+    return authResult;
+}
 
 /**
  * Calculates the inventory status based on quantity and threshold
@@ -45,21 +101,39 @@ interface InventoryError {
 
 /**
  * Deducts stock from inventory for each item in an order
- * Uses a Firestore batch for atomic updates
+ * Uses batch reads for efficiency and batch writes for atomic updates
+ * Also calculates the server-side total price for security
  * 
  * @param orderItems - Array of items to deduct from inventory
- * @returns Object with success status and structured errors
+ * @returns Object with success status, calculated price, and structured errors
  */
-async function deductInventoryStock(orderItems: OrderItem[]): Promise<{ success: boolean; errors: InventoryError[] }> {
+async function deductInventoryStock(orderItems: OrderItem[]): Promise<{ 
+    success: boolean; 
+    errors: InventoryError[];
+    calculatedPrice?: number;
+}> {
     const errors: InventoryError[] = [];
     const batch = adminDB.batch();
+    let calculatedPrice = 0;
     
-    for (const item of orderItems) {
-        try {
-            const inventoryRef = adminDB.collection(INVENTORY_COLLECTION).doc(item.itemId);
-            const inventoryDoc = await inventoryRef.get();
+    try {
+        // Batch read: Get all inventory documents in a single call
+        const inventoryRefs = orderItems.map(item => 
+            adminDB.collection(INVENTORY_COLLECTION).doc(item.itemId)
+        );
+        const inventoryDocs = await adminDB.getAll(...inventoryRefs);
+        
+        // Create a map for quick lookup
+        const inventoryMap = new Map<string, FirebaseFirestore.DocumentSnapshot>();
+        inventoryDocs.forEach(doc => {
+            inventoryMap.set(doc.id, doc);
+        });
+        
+        // Process each order item
+        for (const item of orderItems) {
+            const inventoryDoc = inventoryMap.get(item.itemId);
             
-            if (!inventoryDoc.exists) {
+            if (!inventoryDoc || !inventoryDoc.exists) {
                 errors.push({
                     type: 'item_not_found',
                     itemName: item.name,
@@ -71,8 +145,12 @@ async function deductInventoryStock(orderItems: OrderItem[]): Promise<{ success:
             const inventoryData = inventoryDoc.data();
             const currentQuantity = inventoryData?.quantity ?? 0;
             const minStockThreshold = inventoryData?.minStockThreshold ?? 10;
+            const itemPrice = inventoryData?.price ?? 0;
             const newQuantity = Math.max(0, currentQuantity - item.quantity);
             const newStatus = calculateInventoryStatus(newQuantity, minStockThreshold);
+            
+            // Calculate server-side price for this item
+            calculatedPrice += itemPrice * item.quantity;
             
             // Check if there's sufficient stock
             if (currentQuantity < item.quantity) {
@@ -89,18 +167,21 @@ async function deductInventoryStock(orderItems: OrderItem[]): Promise<{ success:
             }
             
             // Queue the update in the batch
-            batch.update(inventoryRef, {
+            batch.update(inventoryDoc.ref, {
                 quantity: newQuantity,
                 status: newStatus,
                 lastUpdated: new Date().toISOString(),
             });
-        } catch (err) {
-            errors.push({
-                type: 'processing_error',
-                itemName: item.name,
-                message: `Unable to process "${item.name}". Please try again.`,
-            });
         }
+    } catch (err) {
+        return {
+            success: false,
+            errors: [{
+                type: 'processing_error',
+                itemName: 'Order',
+                message: 'Failed to verify inventory. Please try again.',
+            }]
+        };
     }
     
     // If there are errors, don't commit the batch
@@ -111,7 +192,7 @@ async function deductInventoryStock(orderItems: OrderItem[]): Promise<{ success:
     // Commit all inventory updates atomically
     try {
         await batch.commit();
-        return { success: true, errors: [] };
+        return { success: true, errors: [], calculatedPrice };
     } catch (err) {
         return { 
             success: false, 
@@ -153,7 +234,7 @@ function formatInventoryErrorMessage(errors: InventoryError[]): string {
 
 /**
  * Restores stock to inventory when an order is cancelled
- * Uses a Firestore batch for atomic updates
+ * Uses batch reads for efficiency and batch writes for atomic updates
  * 
  * @param orderItems - Array of items to restore to inventory
  * @returns Object with success status and any error message
@@ -161,12 +242,24 @@ function formatInventoryErrorMessage(errors: InventoryError[]): string {
 async function restoreInventoryStock(orderItems: OrderItem[]): Promise<{ success: boolean; error?: string }> {
     const batch = adminDB.batch();
     
-    for (const item of orderItems) {
-        try {
-            const inventoryRef = adminDB.collection(INVENTORY_COLLECTION).doc(item.itemId);
-            const inventoryDoc = await inventoryRef.get();
+    try {
+        // Batch read: Get all inventory documents in a single call
+        const inventoryRefs = orderItems.map(item => 
+            adminDB.collection(INVENTORY_COLLECTION).doc(item.itemId)
+        );
+        const inventoryDocs = await adminDB.getAll(...inventoryRefs);
+        
+        // Create a map for quick lookup
+        const inventoryMap = new Map<string, FirebaseFirestore.DocumentSnapshot>();
+        inventoryDocs.forEach(doc => {
+            inventoryMap.set(doc.id, doc);
+        });
+        
+        // Process each order item
+        for (const item of orderItems) {
+            const inventoryDoc = inventoryMap.get(item.itemId);
             
-            if (!inventoryDoc.exists) {
+            if (!inventoryDoc || !inventoryDoc.exists) {
                 // Item no longer exists, skip restoration but log it
                 console.warn(`Cannot restore stock for "${item.name}" (${item.itemId}) - item not found in inventory`);
                 continue;
@@ -179,14 +272,18 @@ async function restoreInventoryStock(orderItems: OrderItem[]): Promise<{ success
             const newStatus = calculateInventoryStatus(newQuantity, minStockThreshold);
             
             // Queue the update in the batch
-            batch.update(inventoryRef, {
+            batch.update(inventoryDoc.ref, {
                 quantity: newQuantity,
                 status: newStatus,
                 lastUpdated: new Date().toISOString(),
             });
-        } catch (err) {
-            console.error(`Error restoring stock for ${item.name}:`, err);
         }
+    } catch (err) {
+        console.error("Error reading inventory for restoration:", err);
+        return { 
+            success: false, 
+            error: 'Failed to read inventory for restoration.',
+        };
     }
     
     // Commit all inventory updates atomically
@@ -215,11 +312,31 @@ async function restoreInventoryStock(orderItems: OrderItem[]): Promise<{ success
  * - 500: Server error
  */
 export async function GET(request: Request) {
+    // Verify authentication
+    const authResult = await verifyAuth(request);
+    if ("error" in authResult) {
+        return Response.json(
+            { error: authResult.error },
+            { status: authResult.status }
+        );
+    }
+    
+    const currentUser = authResult.user;
+    
     try {
         // Parse URL to extract query parameters
         const { searchParams } = new URL(request.url);
         const orderId = searchParams.get("orderId");
         const userId = searchParams.get("userId");
+        
+        // Security: Customers can only view their own orders
+        // Employees and owners can view all orders
+        if (userId && currentUser.role === "customer" && userId !== currentUser.uid) {
+            return Response.json(
+                { error: "Forbidden: Cannot view other users' orders" },
+                { status: 403 }
+            );
+        }
 
         // If orderId is provided, fetch a single order
         if (orderId) {
@@ -336,15 +453,34 @@ export async function GET(request: Request) {
  * - 500: Server error
  */
 export async function POST(request: Request) {
+    // Verify authentication
+    const authResult = await verifyAuth(request);
+    if ("error" in authResult) {
+        return Response.json(
+            { error: authResult.error },
+            { status: authResult.status }
+        );
+    }
+    
+    const currentUser = authResult.user;
+    
     try {
         // Parse the request body
         const body: CreateOrderRequest = await request.json();
 
-        // Validate required fields
-        if (!body.userId || !body.displayName || !body.OrderContents || body.TotalPrice === undefined) {
+        // Validate required fields (TotalPrice no longer required - calculated server-side)
+        if (!body.userId || !body.displayName || !body.OrderContents) {
             return Response.json(
-                { error: "userId, displayName, OrderContents, and TotalPrice are required" },
+                { error: "userId, displayName, and OrderContents are required" },
                 { status: 400 }
+            );
+        }
+        
+        // Security: Customers can only create orders for themselves
+        if (currentUser.role === "customer" && body.userId !== currentUser.uid) {
+            return Response.json(
+                { error: "Forbidden: Cannot create orders for other users" },
+                { status: 403 }
             );
         }
 
@@ -357,7 +493,7 @@ export async function POST(request: Request) {
         }
 
         // Deduct stock from inventory BEFORE creating the order
-        // This ensures we don't create orders for items that are out of stock
+        // This also calculates the server-side price for security
         const stockResult = await deductInventoryStock(body.OrderContents);
         
         if (!stockResult.success) {
@@ -370,19 +506,22 @@ export async function POST(request: Request) {
                 { status: 400 }
             );
         }
+        
+        // Use server-calculated price instead of client-provided price
+        const serverCalculatedPrice = stockResult.calculatedPrice ?? 0;
 
-        // Generate the next OrderID by finding the current maximum
-        // This ensures unique, sequential order IDs
-        const lastOrderSnapshot = await adminDB
-            .collection(ORDERS_COLLECTION)
-            .orderBy("OrderID", "desc")
-            .limit(1)
-            .get();
-
-        // If no orders exist, start from 1; otherwise increment the last ID
-        const nextOrderId = lastOrderSnapshot.empty
-            ? 1
-            : lastOrderSnapshot.docs[0].data().OrderID + 1;
+        // Generate the next OrderID using a transaction to prevent race conditions
+        const nextOrderId = await adminDB.runTransaction(async (transaction) => {
+            const lastOrderSnapshot = await transaction.get(
+                adminDB.collection(ORDERS_COLLECTION)
+                    .orderBy("OrderID", "desc")
+                    .limit(1)
+            );
+            
+            return lastOrderSnapshot.empty
+                ? 1
+                : lastOrderSnapshot.docs[0].data().OrderID + 1;
+        });
 
         // Prepare the order document for Firestore
         const orderData = {
@@ -391,7 +530,7 @@ export async function POST(request: Request) {
             userId: body.userId,
             displayName: body.displayName,
             OrderContents: body.OrderContents,
-            TotalPrice: body.TotalPrice,
+            TotalPrice: serverCalculatedPrice, // Use server-calculated price
             status: 'pending' as const, // New orders start as pending
         };
 
@@ -437,6 +576,17 @@ export async function POST(request: Request) {
  * - 500: Server error
  */
 export async function PUT(request: Request) {
+    // Verify authentication
+    const authResult = await verifyAuth(request);
+    if ("error" in authResult) {
+        return Response.json(
+            { error: authResult.error },
+            { status: authResult.status }
+        );
+    }
+    
+    const currentUser = authResult.user;
+    
     try {
         // Parse the request body
         const body: UpdateOrderRequest = await request.json();
@@ -467,6 +617,30 @@ export async function PUT(request: Request) {
         const doc = snapshot.docs[0];
         const currentOrder = doc.data();
         const currentStatus = currentOrder.status;
+        
+        // Security: Customers can only update their own orders
+        // and can only cancel (not change other fields)
+        if (currentUser.role === "customer") {
+            if (currentOrder.userId !== currentUser.uid) {
+                return Response.json(
+                    { error: "Forbidden: Cannot modify other users' orders" },
+                    { status: 403 }
+                );
+            }
+            // Customers can only cancel their own pending orders
+            if (body.status && body.status !== "cancelled") {
+                return Response.json(
+                    { error: "Forbidden: Customers can only cancel orders" },
+                    { status: 403 }
+                );
+            }
+            if (currentStatus !== "pending") {
+                return Response.json(
+                    { error: "Cannot cancel an order that is already being processed" },
+                    { status: 400 }
+                );
+            }
+        }
 
         // Build the update object with only provided fields
         // This allows partial updates
@@ -540,6 +714,15 @@ export async function PUT(request: Request) {
  * - 500: Server error
  */
 export async function DELETE(request: Request) {
+    // Verify authentication - only employees/owners can delete orders
+    const authResult = await verifyEmployeeOrOwner(request);
+    if ("error" in authResult) {
+        return Response.json(
+            { error: authResult.error },
+            { status: authResult.status }
+        );
+    }
+    
     try {
         // Parse URL to extract the orderId parameter
         const { searchParams } = new URL(request.url);

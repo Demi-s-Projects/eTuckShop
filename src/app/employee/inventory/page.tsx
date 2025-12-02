@@ -14,37 +14,16 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
-import { auth } from "@/firebase/config";
-import { onAuthStateChanged } from "firebase/auth";
+import { useAuth, formatDashboardUser } from "@/context/AuthContext";
 import Dashboard from "@/components/Dashboard";
 import InventoryManagement from "@/components/InventoryManagement";
 
 export default function EmployeeInventoryPage() {
-    // State to store the authenticated user's information
-    const [user, setUser] = useState<{name: string, role: string, email?: string} | undefined>(undefined);
-    // State to handle loading status while checking authentication
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        // Subscribe to authentication state changes
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-            if (firebaseUser) {
-                // Map Firebase user to Dashboard user format
-                setUser({
-                    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Employee',
-                    role: 'Employee',
-                    email: firebaseUser.email || undefined
-                });
-            } else {
-                setUser(undefined);
-            }
-            setLoading(false);
-        });
-
-        // Cleanup subscription on unmount
-        return () => unsubscribe();
-    }, []);
+    // Get auth state from centralized context
+    const { user: authUser, loading } = useAuth();
+    
+    // Format user for Dashboard component
+    const user = formatDashboardUser(authUser, "Employee");
 
     // Show loading state while checking auth
     if (loading) {
