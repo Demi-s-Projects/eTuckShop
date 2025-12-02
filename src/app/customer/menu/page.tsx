@@ -8,37 +8,18 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
+import { useMenu } from "@/context/MenuContext";
 import CartSidebar from "@/components/CartSidebar";
 import Dashboard from "@/components/Dashboard";
 import type { MenuItem } from "@/types/MenuItem";
-import { InventoryItem, InventoryFormData, InventoryCategory } from "@/app/api/inventory/inventory";
 import styles from "@/styles/Menu.module.css";
 import customerStyles from "@/styles/CustomerHome.module.css";
 import { auth } from "@/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/firebase/config";
-
-function mapCategory(cat: InventoryCategory): MenuItem["category"] {
-    switch (cat) {
-        case "snack":
-            return "Snacks";
-        case "drink":
-            return "Drinks";
-        case "food":
-            return "Food";
-        case "health and wellness":
-            return "Health and Wellness";
-        case "home care":
-            return "Home Care";
-        default:
-            return "Meals";
-    }
-}
 
 function MenuContent() {
-    const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-    const [itemsLoading, setItemsLoading] = useState(true);
+    // Get cached menu items from context
+    const { menuItems, loading: itemsLoading } = useMenu();
 
     const { addItem, totalItems } = useCart();
     const [isCartOpen, setIsCartOpen] = useState(false);
@@ -76,39 +57,6 @@ function MenuContent() {
         localStorage.setItem("arrivalSort", arrivalSort);
         }
     }, [filterTypes, priceSort, arrivalSort]);
-
-    useEffect(() => {
-    async function loadMenuItems() {
-        try {
-            const ref = collection(db, "inventory");
-            const snapshot = await getDocs(ref);
-
-            const fetched: MenuItem[] = snapshot.docs.map((doc) => {
-                const data = doc.data() as InventoryItem;
-
-                return {
-                    id: doc.id,
-                    name: data.name,
-                    description: data.description || "",
-                    price: data.price || 0,
-                    category: mapCategory(data.category),
-                    lowStock: data.status === "low stock",
-                    available: data.status === "in stock" || data.status == "low stock",
-                    lastUpdated: data.lastUpdated || null,
-                };
-            });
-
-            setMenuItems(fetched);
-        } catch (error) {
-            console.error("Error loading menu items:", error);
-        }
-
-        setItemsLoading(false);
-        setLoading(false);
-    }
-
-    loadMenuItems();
-}, []);
 
     // Apply filters
     const filteredItems = menuItems
@@ -201,18 +149,6 @@ useEffect(() => {
           {/*<Dashboard user={{ name: "Customer", role: "Customer" }} theme="red"> */}
         {/*</Dashboard><Dashboard user={user} theme="red"> */}
             <div className={customerStyles.container}>
-                {/* Top action bar with cart */}
-                <div className={customerStyles.topActions}>
-                    <button
-                        className={customerStyles.cartButton}
-                        onClick={() => setIsCartOpen(true)}
-                    >
-                        🛒 Cart
-                        {totalItems > 0 && (
-                            <span className={customerStyles.cartBadge}>{totalItems}</span>
-                        )}
-                    </button>
-                </div>
                 {/* FILTER BAR */}
                 <div className={styles.filterBar}>
 
@@ -369,6 +305,17 @@ useEffect(() => {
                     </div>
                 ))}
             </div>
+
+            {/* Floating Cart Button */}
+            <button
+                className={customerStyles.cartButton}
+                onClick={() => setIsCartOpen(true)}
+            >
+                🛒 Cart
+                {totalItems > 0 && (
+                    <span className={customerStyles.cartBadge}>{totalItems}</span>
+                )}
+            </button>
 
             <CartSidebar
                 isOpen={isCartOpen}
