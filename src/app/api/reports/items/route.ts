@@ -130,7 +130,7 @@ export async function GET(req: Request) {
 
 		    return {
 				Name: r.name || inv?.name || null,
-				Orders: r.orderIds.size,
+				Sales: r.orderIds.size,
 				BasePrice: inv?.price ?? null,
 				CostPrice: costPrice != null ? Number(costPrice) : null,
                 CostTotal: costTotal != null? Number(costTotal) : null,

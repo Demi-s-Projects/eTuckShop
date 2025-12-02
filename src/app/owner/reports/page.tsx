@@ -5,7 +5,7 @@
  * - Date range and report type selection
  * - Data fetching from API
  * - Column selection, filtering, and sorting
- * - CSV and PDF export
+ * - CSV export
  */
 
 "use client";
@@ -172,26 +172,6 @@ export default function OwnerReportsPage() {
 		const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
 		const filename = `${reportType}-report-${new Date().toISOString().slice(0, 10)}.csv`;
 		downloadBlob(csv, filename, "text/csv");
-	}
-
-	function downloadPDF() {
-		// Simple text-based PDF placeholder - in production use a PDF library like pdfkit
-		const lines: string[] = [];
-		lines.push(`${reportType} Report - ${new Date().toISOString().slice(0, 10)}`);
-		lines.push(`Date Range: ${startDate} to ${endDate}`);
-		lines.push("");
-		lines.push("Columns: " + visibleColumns.join(", "));
-		lines.push("");
-		lines.push("Data:");
-		lines.push(visibleColumns.join(" | "));
-		lines.push("-".repeat(80));
-		sortedData.forEach((row) => {
-			lines.push(visibleColumns.map((col) => String(((row as unknown) as Record<string, unknown>)[col] || "")).join(" | "));
-		});
-
-		const content = lines.join("\n");
-		const filename = `${reportType}-report-${new Date().toISOString().slice(0, 10)}.pdf`;
-		downloadBlob(content, filename, "application/pdf");
 	}
 
 	return (
@@ -362,9 +342,6 @@ export default function OwnerReportsPage() {
 						<div className={styles.downloadSection}>
 							<button onClick={downloadCSV} className={styles.downloadBtn}>
 								📥 Download CSV
-							</button>
-							<button onClick={downloadPDF} className={styles.downloadBtn}>
-								📄 Download PDF
 							</button>
 						</div>
 
