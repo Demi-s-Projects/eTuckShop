@@ -134,6 +134,34 @@ function MenuContent() {
          return 0;
 });
 
+useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        if (firebaseUser) {
+            const name =
+                firebaseUser.displayName ||
+                firebaseUser.email?.split("@")[0] ||
+                "Customer";
+
+            setUser({
+                name: name,
+                role: "Customer",
+                email: firebaseUser.email || undefined,
+            });
+
+            setUserId(firebaseUser.uid);
+            setDisplayName(name);
+        } else {
+            setUser(undefined);
+            setUserId("");
+            setDisplayName("Guest");
+        }
+
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
+}, []);
+
     /*
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -168,7 +196,9 @@ function MenuContent() {
         return <div className={customerStyles.loadingContainer}>Loading...</div>;
     }
     return (
-          <Dashboard user={{ name: "Customer", role: "Customer" }} theme="red">
+            <Dashboard user={user || { name: "Guest", role: "Customer" }} theme="red">
+
+          {/*<Dashboard user={{ name: "Customer", role: "Customer" }} theme="red"> */}
         {/*</Dashboard><Dashboard user={user} theme="red"> */}
             <div className={customerStyles.container}>
                 {/* Top action bar with cart */}
