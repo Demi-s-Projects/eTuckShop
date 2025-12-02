@@ -112,9 +112,8 @@ export default function CustomerOrdersPage() {
                     {CUSTOMER_FILTER_STATUSES.map((status) => (
                         <button
                             key={status}
-                            className={`${styles.filterButton} ${filter === status ? styles.active : ""}`}
+                            className={`${styles.filterButton} ${styles.filterButtonRed} ${filter === status ? styles.active : ""}`}
                             onClick={() => setFilter(status)}
-                            style={{ "--theme-color": "#ef4444" } as React.CSSProperties}
                         >
                             {status === "all" ? "All Orders" : getCustomerStatusLabel(status as OrderStatus)}
                         </button>
@@ -178,18 +177,14 @@ export default function CustomerOrdersPage() {
                                 )}
 
                                 {order.status === "in-progress" && (
-                                    <div className={styles.orderActions} style={{ background: "#fef3c7", borderTop: "1px solid #fbbf24" }}>
-                                        <span style={{ color: "#92400e", fontWeight: 500 }}>
-                                            🍳 Your order is being prepared!
-                                        </span>
+                                    <div className={`${styles.orderActions} ${styles.statusMessagePreparing}`}>
+                                        <span>🍳 Your order is being prepared!</span>
                                     </div>
                                 )}
 
                                 {order.status === "completed" && (
-                                    <div className={styles.orderActions} style={{ background: "#d1fae5", borderTop: "1px solid #10b981" }}>
-                                        <span style={{ color: "#065f46", fontWeight: 500 }}>
-                                            ✅ Your order is ready for pickup!
-                                        </span>
+                                    <div className={`${styles.orderActions} ${styles.statusMessageReady}`}>
+                                        <span>✅ Your order is ready for pickup!</span>
                                     </div>
                                 )}
                             </div>

@@ -62,9 +62,8 @@ export default function EmployeeOrdersPage() {
                     {STAFF_FILTER_STATUSES.map((status) => (
                         <button
                             key={status}
-                            className={`${styles.filterButton} ${filter === status ? styles.active : ""}`}
+                            className={`${styles.filterButton} ${styles.filterButtonGreen} ${filter === status ? styles.active : ""}`}
                             onClick={() => setFilter(status)}
-                            style={{ "--theme-color": "#10b981" } as React.CSSProperties}
                         >
                             {status === "all" ? "All Orders" : getStatusLabel(status as OrderStatus)}
                         </button>

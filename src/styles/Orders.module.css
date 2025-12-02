@@ -10,6 +10,7 @@
     font-size: 1.75rem;
     font-weight: 600;
     margin-bottom: 1.5rem;
+    color: #1e293b;
 }
 
 /* Filters section */
@@ -38,6 +39,19 @@
     border-color: var(--theme-color, #3b82f6);
     background: var(--theme-color, #3b82f6);
     color: white;
+}
+
+/* Theme-specific filter button colors */
+.filterButtonBlue {
+    --theme-color: #3b82f6;
+}
+
+.filterButtonGreen {
+    --theme-color: #10b981;
+}
+
+.filterButtonRed {
+    --theme-color: #ef4444;
 }
 
 /* Orders list */
@@ -297,4 +311,25 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.5rem;
+}
+
+/* Customer order status messages */
+.statusMessagePreparing {
+    background: #fef3c7;
+    border-top: 1px solid #fbbf24;
+}
+
+.statusMessagePreparing span {
+    color: #92400e;
+    font-weight: 500;
+}
+
+.statusMessageReady {
+    background: #d1fae5;
+    border-top: 1px solid #10b981;
+}
+
+.statusMessageReady span {
+    color: #065f46;
+    font-weight: 500;
 }
