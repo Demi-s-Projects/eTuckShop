@@ -14,11 +14,142 @@
  */
 
 import { adminDB } from "@/firebase/admin";
-import type { Order, CreateOrderRequest, UpdateOrderRequest } from "@/types/Order";
+import type { Order, CreateOrderRequest, UpdateOrderRequest, OrderItem } from "@/types/Order";
 import { FieldValue } from "firebase-admin/firestore";
+import type { InventoryStatus } from "@/app/api/inventory/inventory";
 
 // Firestore collection reference for orders
 const ORDERS_COLLECTION = "orders";
+const INVENTORY_COLLECTION = "inventory";
+
+/**
+ * Calculates the inventory status based on quantity and threshold
+ */
+function calculateInventoryStatus(quantity: number, minStockThreshold: number): InventoryStatus {
+    if (quantity <= 0) return "out of stock";
+    if (quantity <= minStockThreshold) return "low stock";
+    return "in stock";
+}
+
+/** Error types for inventory issues */
+type InventoryErrorType = 'insufficient_stock' | 'item_not_found' | 'processing_error';
+
+/** Structured error for inventory issues */
+interface InventoryError {
+    type: InventoryErrorType;
+    itemName: string;
+    message: string;
+    requested?: number;
+    available?: number;
+}
+
+/**
+ * Deducts stock from inventory for each item in an order
+ * Uses a Firestore batch for atomic updates
+ * 
+ * @param orderItems - Array of items to deduct from inventory
+ * @returns Object with success status and structured errors
+ */
+async function deductInventoryStock(orderItems: OrderItem[]): Promise<{ success: boolean; errors: InventoryError[] }> {
+    const errors: InventoryError[] = [];
+    const batch = adminDB.batch();
+    
+    for (const item of orderItems) {
+        try {
+            const inventoryRef = adminDB.collection(INVENTORY_COLLECTION).doc(item.itemId);
+            const inventoryDoc = await inventoryRef.get();
+            
+            if (!inventoryDoc.exists) {
+                errors.push({
+                    type: 'item_not_found',
+                    itemName: item.name,
+                    message: `"${item.name}" is no longer available in our inventory.`,
+                });
+                continue;
+            }
+            
+            const inventoryData = inventoryDoc.data();
+            const currentQuantity = inventoryData?.quantity ?? 0;
+            const minStockThreshold = inventoryData?.minStockThreshold ?? 10;
+            const newQuantity = Math.max(0, currentQuantity - item.quantity);
+            const newStatus = calculateInventoryStatus(newQuantity, minStockThreshold);
+            
+            // Check if there's sufficient stock
+            if (currentQuantity < item.quantity) {
+                errors.push({
+                    type: 'insufficient_stock',
+                    itemName: item.name,
+                    requested: item.quantity,
+                    available: currentQuantity,
+                    message: currentQuantity === 0 
+                        ? `"${item.name}" is out of stock.`
+                        : `Only ${currentQuantity} "${item.name}" available, but you requested ${item.quantity}.`,
+                });
+                continue;
+            }
+            
+            // Queue the update in the batch
+            batch.update(inventoryRef, {
+                quantity: newQuantity,
+                status: newStatus,
+                lastUpdated: new Date().toISOString(),
+            });
+        } catch (err) {
+            errors.push({
+                type: 'processing_error',
+                itemName: item.name,
+                message: `Unable to process "${item.name}". Please try again.`,
+            });
+        }
+    }
+    
+    // If there are errors, don't commit the batch
+    if (errors.length > 0) {
+        return { success: false, errors };
+    }
+    
+    // Commit all inventory updates atomically
+    try {
+        await batch.commit();
+        return { success: true, errors: [] };
+    } catch (err) {
+        return { 
+            success: false, 
+            errors: [{
+                type: 'processing_error',
+                itemName: 'Order',
+                message: 'Failed to update inventory. Please try again.',
+            }]
+        };
+    }
+}
+
+/**
+ * Formats inventory errors into a user-friendly summary
+ */
+function formatInventoryErrorMessage(errors: InventoryError[]): string {
+    const stockErrors = errors.filter(e => e.type === 'insufficient_stock');
+    const notFoundErrors = errors.filter(e => e.type === 'item_not_found');
+    const otherErrors = errors.filter(e => e.type === 'processing_error');
+    
+    const messages: string[] = [];
+    
+    if (stockErrors.length > 0) {
+        const itemList = stockErrors.map(e => e.message).join(' ');
+        messages.push(itemList);
+    }
+    
+    if (notFoundErrors.length > 0) {
+        const itemNames = notFoundErrors.map(e => `"${e.itemName}"`).join(', ');
+        messages.push(`The following item(s) are no longer available: ${itemNames}.`);
+    }
+    
+    if (otherErrors.length > 0) {
+        messages.push('Some items could not be processed. Please try again.');
+    }
+    
+    return messages.join(' ') || 'Unable to process your order.';
+}
 
 /**
  * GET Handler - Retrieve orders
@@ -143,9 +274,14 @@ export async function GET(request: Request) {
  * - OrderID: Auto-incremented based on the highest existing OrderID
  * - OrderTime: Server timestamp when the order is created
  * 
+ * Stock Deduction:
+ * - Automatically deducts ordered quantities from inventory
+ * - Updates inventory status (in stock / low stock / out of stock)
+ * - Validates sufficient stock before creating order
+ * 
  * Returns:
  * - 201: Order created successfully
- * - 400: Missing required fields
+ * - 400: Missing required fields or insufficient stock
  * - 500: Server error
  */
 export async function POST(request: Request) {
@@ -165,6 +301,21 @@ export async function POST(request: Request) {
         if (!Array.isArray(body.OrderContents) || body.OrderContents.length === 0) {
             return Response.json(
                 { error: "OrderContents must be a non-empty array of items" },
+                { status: 400 }
+            );
+        }
+
+        // Deduct stock from inventory BEFORE creating the order
+        // This ensures we don't create orders for items that are out of stock
+        const stockResult = await deductInventoryStock(body.OrderContents);
+        
+        if (!stockResult.success) {
+            const userFriendlyMessage = formatInventoryErrorMessage(stockResult.errors);
+            return Response.json(
+                { 
+                    error: userFriendlyMessage,
+                    details: stockResult.errors,
+                },
                 { status: 400 }
             );
         }
@@ -197,6 +348,7 @@ export async function POST(request: Request) {
         const docRef = await adminDB.collection(ORDERS_COLLECTION).add(orderData);
 
         console.log(`Order created with ID: ${nextOrderId}, Document ID: ${docRef.id}`);
+        console.log(`Inventory deducted for ${body.OrderContents.length} item(s)`);
 
         return Response.json(
             {

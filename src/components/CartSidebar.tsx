@@ -22,6 +22,7 @@
 
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import type { OrderItem } from "@/types/Order";
 import styles from "@/styles/Menu.module.css";
@@ -38,10 +39,27 @@ interface CartSidebarProps {
 }
 
 export default function CartSidebar({ isOpen, onClose, userId, displayName }: CartSidebarProps) {
+    const router = useRouter();
     const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [orderSuccess, setOrderSuccess] = useState(false);
     const [orderError, setOrderError] = useState("");
+
+    // Clear error when cart is modified (item removed, quantity changed, or cart cleared)
+    const handleUpdateQuantity = (itemId: string, quantity: number) => {
+        setOrderError("");
+        updateQuantity(itemId, quantity);
+    };
+
+    const handleRemoveItem = (itemId: string) => {
+        setOrderError("");
+        removeItem(itemId);
+    };
+
+    const handleClearCart = () => {
+        setOrderError("");
+        clearCart();
+    };
 
     const handleCheckout = async () => {
         if (items.length === 0) return;
@@ -77,16 +95,13 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
                 throw new Error(errorData.error || "Failed to place order");
             }
 
-            await response.json();
+            const orderData = await response.json();
+            const orderId = orderData.orderId;
 
-            setOrderSuccess(true);
+            // Clear cart and redirect to billing page
             clearCart();
-
-            // Close sidebar after a delay
-            setTimeout(() => {
-                setOrderSuccess(false);
-                onClose();
-            }, 2000);
+            onClose();
+            router.push(`/customer/billing?orderID=${orderId}`);
         } catch (error) {
             console.error("Error placing order:", error);
             setOrderError(error instanceof Error ? error.message : "Failed to place order");
@@ -135,20 +150,20 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
                                 <div className={styles.cartItemControls}>
                                     <button
                                         className={styles.quantityButton}
-                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                        onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
                                     >
                                         -
                                     </button>
                                     <span className={styles.quantity}>{item.quantity}</span>
                                     <button
                                         className={styles.quantityButton}
-                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                        onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
                                     >
                                         +
                                     </button>
                                     <button
                                         className={styles.removeButton}
-                                        onClick={() => removeItem(item.id)}
+                                        onClick={() => handleRemoveItem(item.id)}
                                     >
                                         Remove
                                     </button>
@@ -173,7 +188,7 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
                     {items.length > 0 && (
                         <button
                             className={styles.clearButton}
-                            onClick={clearCart}
+                            onClick={handleClearCart}
                             disabled={isSubmitting}
                         >
                             Clear Cart

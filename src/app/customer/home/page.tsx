@@ -72,19 +72,6 @@ function CustomerHomeContent() {
     return (
         <Dashboard user={user} theme="red">
             <div className={styles.container}>
-                {/* Top action bar with cart and logout */}
-                <div className={styles.topActions}>
-                    <button
-                        className={styles.cartButton}
-                        onClick={() => setIsCartOpen(true)}
-                    >
-                        🛒 Cart
-                        {totalItems > 0 && (
-                            <span className={styles.cartBadge}>{totalItems}</span>
-                        )}
-                    </button>
-                </div>
-
                 <h1 className={styles.title}>Customer Dashboard</h1>
                 <p className={styles.welcomeText}>Welcome back, {user?.name || 'Customer'}!</p>
                 
@@ -114,6 +101,17 @@ function CustomerHomeContent() {
                     </div>
                 </div>
             </div>
+
+            {/* Floating Cart Button */}
+            <button
+                className={styles.cartButton}
+                onClick={() => setIsCartOpen(true)}
+            >
+                🛒 Cart
+                {totalItems > 0 && (
+                    <span className={styles.cartBadge}>{totalItems}</span>
+                )}
+            </button>
 
             {/* Cart Sidebar */}
             <CartSidebar
