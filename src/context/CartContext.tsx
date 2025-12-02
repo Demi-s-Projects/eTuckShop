@@ -12,6 +12,7 @@
  * - Automatic persistence to localStorage per user
  * - Cart state restoration on page refresh
  * - Computed totals (item count and price)
+ * - Basic toast notifications for add/remove/clear actions
  * 
  * Usage:
  * 1. Wrap your component tree with <CartProvider>
@@ -19,53 +20,38 @@
  */
 
 "use client";
+
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import type { MenuItem, CartItem } from "@/types/MenuItem";
 import { auth } from "@/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
+import { toast } from "react-hot-toast";
 
-/** localStorage key prefix for cart storage */
 const CART_STORAGE_KEY = "etuckshop_cart";
 
-/** Shape of the cart context value */
 interface CartContextType {
-    /** Array of items currently in the cart */
     items: CartItem[];
-    /** Add a menu item to the cart (or increment if exists) */
     addItem: (item: MenuItem) => void;
-    /** Remove an item completely from the cart */
     removeItem: (itemId: string) => void;
-    /** Update the quantity of a specific item */
     updateQuantity: (itemId: string, quantity: number) => void;
-    /** Clear all items from the cart */
     clearCart: () => void;
-    /** Total number of items in the cart (sum of quantities) */
     totalItems: number;
-    /** Total price of all items in the cart */
     totalPrice: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-/**
- * Get stored cart from localStorage for a specific user
- */
 function getStoredCart(userId: string): CartItem[] {
     if (typeof window === "undefined") return [];
     try {
         const stored = localStorage.getItem(`${CART_STORAGE_KEY}_${userId}`);
-        if (stored) {
-            return JSON.parse(stored);
-        }
+        if (stored) return JSON.parse(stored);
     } catch (error) {
         console.error("Error reading cart from localStorage:", error);
     }
     return [];
 }
 
-/**
- * Save cart to localStorage for a specific user
- */
 function saveCart(userId: string, items: CartItem[]): void {
     if (typeof window === "undefined") return;
     try {
@@ -75,9 +61,6 @@ function saveCart(userId: string, items: CartItem[]): void {
     }
 }
 
-/**
- * Clear cart from localStorage for a specific user
- */
 function clearStoredCart(userId: string): void {
     if (typeof window === "undefined") return;
     try {
@@ -92,16 +75,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const [userId, setUserId] = useState<string | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
 
-    // Listen for auth state changes and load cart for the logged-in user
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
                 setUserId(user.uid);
-                // Load cart from localStorage for this user
                 const storedCart = getStoredCart(user.uid);
                 setItems(storedCart);
             } else {
-                // User logged out - clear cart state
                 setUserId(null);
                 setItems([]);
             }
@@ -111,7 +91,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return () => unsubscribe();
     }, []);
 
-    // Save cart to localStorage whenever items change (after initialization)
     useEffect(() => {
         if (isInitialized && userId) {
             saveCart(userId, items);
@@ -119,27 +98,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }, [items, userId, isInitialized]);
 
     const addItem = useCallback((item: MenuItem) => {
+        let action: "added" | "incremented" = "added";
+
         setItems((prevItems) => {
             const existingItem = prevItems.find((i) => i.id === item.id);
             if (existingItem) {
-                // Increment quantity if item already exists
+                action = "incremented";
                 return prevItems.map((i) =>
                     i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
                 );
             }
-            // Add new item with quantity 1
             return [...prevItems, { ...item, quantity: 1 }];
         });
+
+        if (action === "added") toast.success(`${item.name} added to cart!`);
+        else toast.success(`Increased quantity of ${item.name} in cart!`);
     }, []);
 
     const removeItem = useCallback((itemId: string) => {
-        setItems((prevItems) => prevItems.filter((item) => item.id !== itemId));
+        let removedItemName: string | null = null;
+
+        setItems((prevItems) => {
+            const item = prevItems.find(i => i.id === itemId);
+            if (item) removedItemName = item.name;
+            return prevItems.filter((item) => item.id !== itemId);
+        });
+
+        if (removedItemName) toast.error(`${removedItemName} removed from cart!`);
     }, []);
 
     const updateQuantity = useCallback((itemId: string, quantity: number) => {
         if (quantity <= 0) {
-            // Remove item if quantity is 0 or less
-            setItems((prevItems) => prevItems.filter((item) => item.id !== itemId));
+            let removedItemName: string | null = null;
+            setItems((prevItems) => {
+                const item = prevItems.find(i => i.id === itemId);
+                if (item) removedItemName = item.name;
+                return prevItems.filter((item) => item.id !== itemId);
+            });
+            if (removedItemName) toast.error(`${removedItemName} removed from cart!`);
         } else {
             setItems((prevItems) =>
                 prevItems.map((item) =>
@@ -151,10 +147,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     const clearCart = useCallback(() => {
         setItems([]);
-        // Also clear from localStorage
-        if (userId) {
-            clearStoredCart(userId);
-        }
+        if (userId) clearStoredCart(userId);
+        toast.error(`Cart cleared!`);
     }, [userId]);
 
     const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
