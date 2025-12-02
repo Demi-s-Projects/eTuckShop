@@ -8,7 +8,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
-import { CartProvider } from "@/context/CartContext";
 import CartSidebar from "@/components/CartSidebar";
 import Dashboard from "@/components/dashboard";
 import type { MenuItem } from "@/types/MenuItem";
@@ -247,9 +246,5 @@ function MenuContent() {
 }
 
 export default function MenuPage() {
-    return (
-        <CartProvider>
-            <MenuContent />
-        </CartProvider>
-    );
+    return <MenuContent />;
 }

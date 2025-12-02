@@ -68,6 +68,7 @@ export async function GET(request: Request) {
                 displayName: data.displayName,
                 OrderContents: data.OrderContents,
                 TotalPrice: data.TotalPrice,
+                status: data.status || 'pending',
             };
 
             return Response.json({ order }, { status: 200 });
@@ -75,10 +76,11 @@ export async function GET(request: Request) {
 
         // If userId is provided, fetch all orders for that user
         if (userId) {
+            // Note: Not using orderBy here to avoid requiring a composite index
+            // Sorting is done client-side instead
             const snapshot = await adminDB
                 .collection(ORDERS_COLLECTION)
                 .where("userId", "==", userId)
-                .orderBy("OrderTime", "desc")
                 .get();
 
             // Map Firestore documents to Order array
@@ -91,6 +93,7 @@ export async function GET(request: Request) {
                     displayName: data.displayName,
                     OrderContents: data.OrderContents,
                     TotalPrice: data.TotalPrice,
+                    status: data.status || 'pending',
                 };
             });
 
@@ -113,6 +116,7 @@ export async function GET(request: Request) {
                 displayName: data.displayName,
                 OrderContents: data.OrderContents,
                 TotalPrice: data.TotalPrice,
+                status: data.status || 'pending',
             };
         });
 
@@ -186,6 +190,7 @@ export async function POST(request: Request) {
             displayName: body.displayName,
             OrderContents: body.OrderContents,
             TotalPrice: body.TotalPrice,
+            status: 'pending' as const, // New orders start as pending
         };
 
         // Add the order to Firestore
@@ -218,6 +223,7 @@ export async function POST(request: Request) {
  * - displayName: string (optional) - New display name
  * - OrderContents: OrderItem[] (optional) - New order contents
  * - TotalPrice: number (optional) - New total price
+ * - status: OrderStatus (optional) - New order status
  * 
  * Note: OrderTime and userId cannot be modified
  * 
@@ -257,7 +263,7 @@ export async function PUT(request: Request) {
 
         // Build the update object with only provided fields
         // This allows partial updates
-        const updateData: Partial<Pick<Order, "displayName" | "OrderContents" | "TotalPrice">> = {};
+        const updateData: Partial<Pick<Order, "displayName" | "OrderContents" | "TotalPrice" | "status">> = {};
         
         if (body.displayName !== undefined) {
             updateData.displayName = body.displayName;
@@ -267,6 +273,9 @@ export async function PUT(request: Request) {
         }
         if (body.TotalPrice !== undefined) {
             updateData.TotalPrice = body.TotalPrice;
+        }
+        if (body.status !== undefined) {
+            updateData.status = body.status;
         }
 
         // Only perform update if there are fields to update
