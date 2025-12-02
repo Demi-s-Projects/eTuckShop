@@ -17,8 +17,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { auth } from "@/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
-import Dashboard from "@/components/dashboard";
-import { CartProvider, useCart } from "@/context/CartContext";
+import Dashboard from "@/components/Dashboard";
+import { useCart } from "@/context/CartContext";
 import CartSidebar from "@/components/CartSidebar";
 import styles from "@/styles/CustomerHome.module.css";
 
@@ -127,9 +127,5 @@ function CustomerHomeContent() {
 }
 
 export default function CustomerHome() {
-    return (
-        <CartProvider>
-            <CustomerHomeContent />
-        </CartProvider>
-    );
+    return <CustomerHomeContent />;
 }

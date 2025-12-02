@@ -15,7 +15,7 @@
 import { useEffect, useState } from "react";
 import { auth } from "@/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
-import Dashboard from "@/components/dashboard";
+import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/OwnerHome.module.css";
 
 export default function OwnerHome() {

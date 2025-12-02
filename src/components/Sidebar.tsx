@@ -11,7 +11,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import styles from '@/styles/Sidebar.module.css';
-import type { ThemeColor } from './dashboard';
+import type { ThemeColor } from './Dashboard';
 
 interface SidebarProps {
   /** Whether the sidebar is currently collapsed */

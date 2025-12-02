@@ -1,21 +1,122 @@
-"use client";
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import type { MenuItem, CartItem } from "@/types/MenuItem";
+/**
+ * Cart Context Provider
+ * 
+ * Provides global cart state management across the customer-facing application.
+ * Persists cart data in localStorage tied to the authenticated user's ID.
+ * 
+ * Features:
+ * - Add items to cart (increments quantity if already exists)
+ * - Remove items from cart
+ * - Update item quantities
+ * - Clear entire cart (on checkout or logout)
+ * - Automatic persistence to localStorage per user
+ * - Cart state restoration on page refresh
+ * - Computed totals (item count and price)
+ * 
+ * Usage:
+ * 1. Wrap your component tree with <CartProvider>
+ * 2. Use the useCart() hook to access cart state and actions
+ */
 
+"use client";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import type { MenuItem, CartItem } from "@/types/MenuItem";
+import { auth } from "@/firebase/config";
+import { onAuthStateChanged } from "firebase/auth";
+
+/** localStorage key prefix for cart storage */
+const CART_STORAGE_KEY = "etuckshop_cart";
+
+/** Shape of the cart context value */
 interface CartContextType {
+    /** Array of items currently in the cart */
     items: CartItem[];
+    /** Add a menu item to the cart (or increment if exists) */
     addItem: (item: MenuItem) => void;
+    /** Remove an item completely from the cart */
     removeItem: (itemId: string) => void;
+    /** Update the quantity of a specific item */
     updateQuantity: (itemId: string, quantity: number) => void;
+    /** Clear all items from the cart */
     clearCart: () => void;
+    /** Total number of items in the cart (sum of quantities) */
     totalItems: number;
+    /** Total price of all items in the cart */
     totalPrice: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+/**
+ * Get stored cart from localStorage for a specific user
+ */
+function getStoredCart(userId: string): CartItem[] {
+    if (typeof window === "undefined") return [];
+    try {
+        const stored = localStorage.getItem(`${CART_STORAGE_KEY}_${userId}`);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (error) {
+        console.error("Error reading cart from localStorage:", error);
+    }
+    return [];
+}
+
+/**
+ * Save cart to localStorage for a specific user
+ */
+function saveCart(userId: string, items: CartItem[]): void {
+    if (typeof window === "undefined") return;
+    try {
+        localStorage.setItem(`${CART_STORAGE_KEY}_${userId}`, JSON.stringify(items));
+    } catch (error) {
+        console.error("Error saving cart to localStorage:", error);
+    }
+}
+
+/**
+ * Clear cart from localStorage for a specific user
+ */
+function clearStoredCart(userId: string): void {
+    if (typeof window === "undefined") return;
+    try {
+        localStorage.removeItem(`${CART_STORAGE_KEY}_${userId}`);
+    } catch (error) {
+        console.error("Error clearing cart from localStorage:", error);
+    }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
     const [items, setItems] = useState<CartItem[]>([]);
+    const [userId, setUserId] = useState<string | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
+
+    // Listen for auth state changes and load cart for the logged-in user
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setUserId(user.uid);
+                // Load cart from localStorage for this user
+                const storedCart = getStoredCart(user.uid);
+                setItems(storedCart);
+            } else {
+                // User logged out - clear cart state
+                setUserId(null);
+                setItems([]);
+            }
+            setIsInitialized(true);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    // Save cart to localStorage whenever items change (after initialization)
+    useEffect(() => {
+        if (isInitialized && userId) {
+            saveCart(userId, items);
+        }
+    }, [items, userId, isInitialized]);
 
     const addItem = useCallback((item: MenuItem) => {
         setItems((prevItems) => {
@@ -50,7 +151,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     const clearCart = useCallback(() => {
         setItems([]);
-    }, []);
+        // Also clear from localStorage
+        if (userId) {
+            clearStoredCart(userId);
+        }
+    }, [userId]);
 
     const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
     const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);

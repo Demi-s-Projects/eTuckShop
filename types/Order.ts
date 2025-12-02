@@ -6,6 +6,16 @@
  */
 
 /**
+ * Order status values
+ * - pending: Order placed, waiting to be processed
+ * - in-progress: Order is being prepared
+ * - completed: Order has been fulfilled
+ * - cancelled: Order was cancelled by customer (waiting for acknowledgment)
+ * - cancelled-acknowledged: Cancellation acknowledged by staff, ready for deletion
+ */
+export type OrderStatus = 'pending' | 'in-progress' | 'completed' | 'cancelled' | 'cancelled-acknowledged';
+
+/**
  * Represents a single item within an order
  */
 export type OrderItem = {
@@ -32,6 +42,8 @@ export type Order = {
     OrderContents: OrderItem[];
     /** Total price of the order */
     TotalPrice: number;
+    /** Current status of the order */
+    status: OrderStatus;
 };
 
 /**
@@ -45,6 +57,7 @@ export type OrderDocument = {
     displayName: string;
     OrderContents: OrderItem[];
     TotalPrice: number;
+    status: OrderStatus;
 };
 
 /**
@@ -67,4 +80,5 @@ export type UpdateOrderRequest = {
     displayName?: string;
     OrderContents?: OrderItem[];
     TotalPrice?: number;
+    status?: OrderStatus;
 };
