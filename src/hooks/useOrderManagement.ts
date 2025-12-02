@@ -38,8 +38,6 @@ export type FilterStatus = "all" | OrderStatus;
 interface UseOrderManagementOptions {
     /** If provided, only fetches orders for this user ID */
     userId?: string | null;
-    /** Custom status labels (e.g., customer-friendly labels) */
-    statusLabels?: Partial<Record<OrderStatus, string>>;
 }
 
 /** Return type of the useOrderManagement hook */
@@ -82,7 +80,7 @@ const DEFAULT_STATUS_LABELS: Record<OrderStatus, string> = {
  * @returns Order management state and functions
  */
 export function useOrderManagement(options: UseOrderManagementOptions = {}): UseOrderManagementReturn {
-    const { userId, statusLabels = {} } = options;
+    const { userId } = options;
     
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
