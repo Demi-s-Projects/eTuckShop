@@ -112,55 +112,63 @@ export default function CustomerLogin() {
 	}
 
 	return (
-		<div className={styles.container}>
-			<h1 className={styles.title}>Login</h1>
-			{authLoading ? (
-				<div className={styles.loadingContainer}>
-					<div className={styles.spinner} />
+		<div className={styles.pageWrapper}>
+			<div className={styles.container}>
+				<div className={styles.logoContainer}>
+					<div className={styles.logo}>eT</div>
 				</div>
-			) : (
-				<>
-					{loginError && <div className={styles.errorMessage}>{loginError}</div>}
-					<form onSubmit={handleLogin}>
-						<div className={styles.formGroup}>
-							<label htmlFor="email" className={styles.label}>
-								Email
-							</label>
-							<input
-								type="email"
-								id="email"
-								name="email"
-								required
-								className={styles.input}
-								onChange={(e) => setEmail(e.target.value)}
-							/>
-						</div>
-						<div className={styles.formGroupLast}>
-							<label htmlFor="password" className={styles.label}>
-								Password
-							</label>
-							<input
-								type="password"
-								id="password"
-								name="password"
-								required
-								className={styles.input}
-								onChange={(e) => setPassword(e.target.value)}
-							/>
-						</div>
-						<button
-							type="submit"
-							className={styles.button}
-							disabled={authLoading}
-						>
-							Login
-						</button>
-					</form>
-					<div className={styles.linkContainer}>
-						<Link href="/register">Don&apos;t have an account? Sign Up</Link>
+				<h1 className={styles.title}>Welcome Back</h1>
+				<p className={styles.subtitle}>Sign in to your eTuckShop account</p>
+				{authLoading ? (
+					<div className={styles.loadingContainer}>
+						<div className={styles.spinner} />
 					</div>
-				</>
-			)}
+				) : (
+					<>
+						{loginError && <div className={styles.errorMessage}>{loginError}</div>}
+						<form onSubmit={handleLogin}>
+							<div className={styles.formGroup}>
+								<label htmlFor="email" className={styles.label}>
+									Email
+								</label>
+								<input
+									type="email"
+									id="email"
+									name="email"
+									required
+									placeholder="Enter your email"
+									className={styles.input}
+									onChange={(e) => setEmail(e.target.value)}
+								/>
+							</div>
+							<div className={styles.formGroupLast}>
+								<label htmlFor="password" className={styles.label}>
+									Password
+								</label>
+								<input
+									type="password"
+									id="password"
+									name="password"
+									required
+									placeholder="Enter your password"
+									className={styles.input}
+									onChange={(e) => setPassword(e.target.value)}
+								/>
+							</div>
+							<button
+								type="submit"
+								className={styles.button}
+								disabled={authLoading}
+							>
+								Sign In
+							</button>
+						</form>
+						<div className={styles.linkContainer}>
+							<Link href="/register">Don&apos;t have an account? Sign Up</Link>
+						</div>
+					</>
+				)}
+			</div>
 		</div>
 	);
 }

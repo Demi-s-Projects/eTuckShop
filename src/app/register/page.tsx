@@ -87,24 +87,30 @@ export default function CustomerRegister() {
 	}
 
 	return (
-		<div className={styles.container}>
-			<h1 className={styles.title}>Sign Up</h1>
-			{signupError && <div className={styles.errorMessage}>{signupError}</div>}
-			<form onSubmit={handleRegister}>
-				<div className={styles.nameRow}>
-					<div className={styles.flex1}>
-						<label htmlFor="firstName" className={styles.label}>
-							First name
-						</label>
-						<input
-							type="text"
-							id="firstName"
-							name="firstName"
-							required
-							className={styles.input}
-							value={firstName}
-							onChange={(e) => setFirstName(e.target.value)}
-						/>
+		<div className={styles.pageWrapper}>
+			<div className={styles.container}>
+				<div className={styles.logoContainer}>
+					<div className={styles.logo}>eT</div>
+				</div>
+				<h1 className={styles.title}>Create Account</h1>
+				<p className={styles.subtitle}>Join eTuckShop to start ordering</p>
+				{signupError && <div className={styles.errorMessage}>{signupError}</div>}
+				<form onSubmit={handleRegister}>
+					<div className={styles.nameRow}>
+						<div className={styles.flex1}>
+							<label htmlFor="firstName" className={styles.label}>
+								First name
+							</label>
+							<input
+								type="text"
+								id="firstName"
+								name="firstName"
+								required
+								placeholder="John"
+								className={styles.input}
+								value={firstName}
+								onChange={(e) => setFirstName(e.target.value)}
+							/>
 						</div>
 						<div className={styles.flex1}>
 							<label htmlFor="lastName" className={styles.label}>
@@ -115,46 +121,50 @@ export default function CustomerRegister() {
 								id="lastName"
 								name="lastName"
 								required
+								placeholder="Doe"
 								className={styles.input}
 								value={lastName}
 								onChange={(e) => setLastName(e.target.value)}
 							/>
 						</div>
 					</div>
-				<div className={styles.formGroup}>
-					<label htmlFor="email" className={styles.label}>
-						Email
-					</label>
-					<input
-						type="email"
-						id="email"
-						name="email"
-						required
-						className={styles.input}
-						value={email}
-						onChange={(e) => setEmail(e.target.value)}
-					/>
+					<div className={styles.formGroup}>
+						<label htmlFor="email" className={styles.label}>
+							Email
+						</label>
+						<input
+							type="email"
+							id="email"
+							name="email"
+							required
+							placeholder="john.doe@example.com"
+							className={styles.input}
+							value={email}
+							onChange={(e) => setEmail(e.target.value)}
+						/>
+					</div>
+					<div className={styles.formGroupLast}>
+						<label htmlFor="password" className={styles.label}>
+							Password
+						</label>
+						<input
+							type="password"
+							id="password"
+							name="password"
+							required
+							placeholder="Create a password"
+							className={styles.input}
+							value={password}
+							onChange={(e) => setPassword(e.target.value)}
+						/>
+					</div>
+					<button type="submit" className={styles.button}>
+						Create Account
+					</button>
+				</form>
+				<div className={styles.linkContainer}>
+					<Link href="/login">Already have an account? Sign In</Link>
 				</div>
-				<div className={styles.formGroupLast}>
-					<label htmlFor="password" className={styles.label}>
-						Password
-					</label>
-					<input
-						type="password"
-						id="password"
-						name="password"
-						required
-						className={styles.input}
-						value={password}
-						onChange={(e) => setPassword(e.target.value)}
-					/>
-				</div>
-				<button type="submit" className={styles.button}>
-					Sign Up
-				</button>
-			</form>
-			<div className={styles.linkContainer}>
-				<Link href="login">Already have an account? Login</Link>
 			</div>
 		</div>
 	);
