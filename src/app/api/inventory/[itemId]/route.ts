@@ -2,11 +2,17 @@ import { adminDB } from "@/firebase/admin";
 import { verify } from "@/app/api/inventory/route";
 import { NextRequest, NextResponse } from "next/server";
 
+/** Route params type for dynamic inventory item routes */
+type RouteParams = {
+  params: Promise<{ itemId: string }>;
+};
+
 // GET single inventory item
 export async function GET(
   request: NextRequest,
-  { params }: { params: { itemId: string } }
+  { params }: RouteParams
 ) {
+  const { itemId } = await params;
   const authResult = await verify(request);
 
   if ("error" in authResult) {
@@ -19,7 +25,7 @@ export async function GET(
   try {
     const itemDoc = await adminDB
       .collection("inventory")
-      .doc(params.itemId)
+      .doc(itemId)
       .get();
 
     if (!itemDoc.exists) {
@@ -45,8 +51,9 @@ export async function GET(
 // PUT - Update existing inventory item
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { itemId: string } }
+  { params }: RouteParams
 ) {
+  const { itemId } = await params;
   const authResult = await verify(request);
 
   if ("error" in authResult) {
@@ -68,7 +75,7 @@ export async function PUT(
       minStockThreshold,
     } = body;
 
-    const itemRef = adminDB.collection("inventory").doc(params.itemId);
+    const itemRef = adminDB.collection("inventory").doc(itemId);
     const itemDoc = await itemRef.get();
 
     if (!itemDoc.exists) {
@@ -106,8 +113,10 @@ export async function PUT(
       updates.quantity = parseInt(quantity);
 
       // Update status based on new quantity
+      // Handle legacy field name 'minStock' for backward compatibility
+      const existingData = itemDoc.data();
       const threshold =
-        minStockThreshold || itemDoc.data()?.minStockThreshold || 10;
+        minStockThreshold || existingData?.minStockThreshold || existingData?.minStock || 10;
 
       if (quantity === 0) {
         updates.status = "out of stock";
@@ -128,7 +137,7 @@ export async function PUT(
     // Fetch updated document
     const updatedDoc = await itemRef.get();
 
-    console.log("Inventory item updated:", params.itemId);
+    console.log("Inventory item updated:", itemId);
 
     return NextResponse.json(
       {
@@ -152,8 +161,9 @@ export async function PUT(
 // DELETE - Remove inventory item
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { itemId: string } }
+  { params }: RouteParams
 ) {
+  const { itemId } = await params;
   const authResult = await verify(request);
 
   if ("error" in authResult) {
@@ -164,7 +174,7 @@ export async function DELETE(
   }
 
   try {
-    const itemRef = adminDB.collection("inventory").doc(params.itemId);
+    const itemRef = adminDB.collection("inventory").doc(itemId);
     const itemDoc = await itemRef.get();
 
     if (!itemDoc.exists) {
@@ -173,7 +183,7 @@ export async function DELETE(
 
     await itemRef.delete();
 
-    console.log("Inventory item deleted:", params.itemId);
+    console.log("Inventory item deleted:", itemId);
 
     return NextResponse.json(
       { message: "Item deleted successfully" },

@@ -77,8 +77,7 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
                 throw new Error(errorData.error || "Failed to place order");
             }
 
-            const result = await response.json();
-            console.log("Order placed successfully:", result);
+            await response.json();
 
             setOrderSuccess(true);
             clearCart();

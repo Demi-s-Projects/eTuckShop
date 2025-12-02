@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       price,
       costPrice,
       quantity,
-      minStock,
+      minStockThreshold,
     } = body;
 
     if (!name || !category || price === undefined || quantity === undefined) {
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     let status = "in stock";
-    const threshold = minStock || 10;
+    const threshold = minStockThreshold || 10;
 
     if (quantity === 0) {
       status = "out of stock";
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       price: parseFloat(price),
       costPrice: parseFloat(costPrice) || 0,
       quantity: parseInt(quantity),
-      minStock: threshold,
+      minStockThreshold: threshold,
       status,
       lastUpdated: new Date().toISOString(),
       updatedBy: authResult.user.uid,
