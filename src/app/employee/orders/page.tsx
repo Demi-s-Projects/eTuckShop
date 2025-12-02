@@ -16,121 +16,35 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
-import type { Order, OrderStatus, OrderItem } from "@/types/Order";
+import type { OrderStatus, OrderItem } from "@/types/Order";
+import {
+    useOrderManagement,
+    formatOrderDate,
+    getStatusBadgeClass,
+    getStatusLabel,
+    STAFF_FILTER_STATUSES,
+} from "@/hooks/useOrderManagement";
 
-/** Filter options including 'all' plus all order statuses */
-type FilterStatus = "all" | OrderStatus;
+/** User object for Dashboard to display correct sidebar */
+const dashboardUser = {
+    name: "Employee",
+    role: "employee",
+};
 
 export default function EmployeeOrdersPage() {
-    const [orders, setOrders] = useState<Order[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [filter, setFilter] = useState<FilterStatus>("all");
-    const [updating, setUpdating] = useState<number | null>(null);
-
-    const fetchOrders = useCallback(async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            const response = await fetch("/api/orders");
-            if (!response.ok) {
-                throw new Error("Failed to fetch orders");
-            }
-            const data = await response.json();
-            // Sort orders by OrderTime descending (newest first)
-            const sortedOrders = (data.orders || []).sort((a: Order, b: Order) => {
-                return new Date(b.OrderTime).getTime() - new Date(a.OrderTime).getTime();
-            });
-            setOrders(sortedOrders);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "An error occurred");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchOrders();
-    }, [fetchOrders]);
-
-    const updateOrderStatus = async (orderId: number, newStatus: OrderStatus) => {
-        try {
-            setUpdating(orderId);
-            const response = await fetch("/api/orders", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ OrderID: orderId, status: newStatus }),
-            });
-
-            if (!response.ok) {
-                throw new Error("Failed to update order");
-            }
-
-            // Update local state
-            setOrders((prev) =>
-                prev.map((order) =>
-                    order.OrderID === orderId ? { ...order, status: newStatus } : order
-                )
-            );
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to update order");
-        } finally {
-            setUpdating(null);
-        }
-    };
-
-    const filteredOrders = orders.filter((order) => {
-        if (filter === "all") return true;
-        return order.status === filter;
-    });
-
-    const formatDate = (date: Date | string) => {
-        const d = new Date(date);
-        return d.toLocaleString();
-    };
-
-    const getStatusBadgeClass = (status: OrderStatus) => {
-        switch (status) {
-            case "pending":
-                return styles.statusPending;
-            case "in-progress":
-                return styles.statusInProgress;
-            case "completed":
-                return styles.statusCompleted;
-            case "cancelled":
-                return styles.statusCancelled;
-            case "cancelled-acknowledged":
-                return styles.statusCancelledAcknowledged;
-            default:
-                return styles.statusPending;
-        }
-    };
-
-    const getStatusLabel = (status: OrderStatus) => {
-        switch (status) {
-            case "pending":
-                return "Pending";
-            case "in-progress":
-                return "In Progress";
-            case "completed":
-                return "Completed";
-            case "cancelled":
-                return "Cancelled";
-            case "cancelled-acknowledged":
-                return "Acknowledged";
-            default:
-                return status;
-        }
-    };
-
-    // User object for Dashboard to display correct sidebar
-    const dashboardUser = {
-        name: "Employee",
-        role: "employee",
-    };
+    // Use the shared order management hook
+    const {
+        loading,
+        error,
+        filter,
+        setFilter,
+        updating,
+        fetchOrders,
+        updateOrderStatus,
+        filteredOrders,
+    } = useOrderManagement();
 
     return (
         <Dashboard theme="green" user={dashboardUser}>
@@ -145,7 +59,7 @@ export default function EmployeeOrdersPage() {
                 {error && <div className={styles.error}>{error}</div>}
 
                 <div className={styles.filters}>
-                    {(["all", "pending", "in-progress", "completed", "cancelled", "cancelled-acknowledged"] as FilterStatus[]).map((status) => (
+                    {STAFF_FILTER_STATUSES.map((status) => (
                         <button
                             key={status}
                             className={`${styles.filterButton} ${filter === status ? styles.active : ""}`}
@@ -170,10 +84,10 @@ export default function EmployeeOrdersPage() {
                                 <div className={styles.orderHeader}>
                                     <div className={styles.orderInfo}>
                                         <span className={styles.orderId}>Order #{order.OrderID}</span>
-                                        <span className={styles.orderTime}>{formatDate(order.OrderTime)}</span>
+                                        <span className={styles.orderTime}>{formatOrderDate(order.OrderTime)}</span>
                                         <span className={styles.customerName}>Customer: {order.displayName}</span>
                                     </div>
-                                    <span className={`${styles.statusBadge} ${getStatusBadgeClass(order.status)}`}>
+                                    <span className={`${styles.statusBadge} ${getStatusBadgeClass(order.status, styles)}`}>
                                         {getStatusLabel(order.status)}
                                     </span>
                                 </div>

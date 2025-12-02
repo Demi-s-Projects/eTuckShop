@@ -14,24 +14,25 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { auth } from "@/firebase/config";
 import { onAuthStateChanged, User } from "firebase/auth";
 import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
-import type { Order, OrderStatus, OrderItem } from "@/types/Order";
-
-/** Filter options including 'all' plus all order statuses */
-type FilterStatus = "all" | OrderStatus;
+import type { OrderStatus, OrderItem } from "@/types/Order";
+import {
+    useOrderManagement,
+    formatOrderDate,
+    getStatusBadgeClass,
+    getStatusLabel,
+    canCustomerCancel,
+    CUSTOMER_FILTER_STATUSES,
+    CUSTOMER_STATUS_LABELS,
+} from "@/hooks/useOrderManagement";
 
 export default function CustomerOrdersPage() {
     const [user, setUser] = useState<User | null>(null);
     const [authLoading, setAuthLoading] = useState(true);
-    const [orders, setOrders] = useState<Order[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [filter, setFilter] = useState<FilterStatus>("all");
-    const [updating, setUpdating] = useState<number | null>(null);
 
     // Listen for auth state changes
     useEffect(() => {
@@ -42,107 +43,30 @@ export default function CustomerOrdersPage() {
         return () => unsubscribe();
     }, []);
 
-    const fetchOrders = useCallback(async () => {
-        if (!user) return;
-        
-        try {
-            setLoading(true);
-            setError(null);
-            // Fetch only orders for the current user
-            const response = await fetch(`/api/orders?userId=${user.uid}`);
-            if (!response.ok) {
-                throw new Error("Failed to fetch orders");
-            }
-            const data = await response.json();
-            // Sort orders by OrderTime descending (newest first)
-            const sortedOrders = (data.orders || []).sort((a: Order, b: Order) => {
-                return new Date(b.OrderTime).getTime() - new Date(a.OrderTime).getTime();
-            });
-            setOrders(sortedOrders);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "An error occurred");
-        } finally {
-            setLoading(false);
-        }
-    }, [user]);
+    // Use the shared order management hook with userId filter
+    const {
+        loading,
+        error,
+        filter,
+        setFilter,
+        updating,
+        fetchOrders,
+        updateOrderStatus,
+        filteredOrders,
+    } = useOrderManagement({ userId: user?.uid || null });
 
-    useEffect(() => {
-        fetchOrders();
-    }, [fetchOrders]);
-
-    const cancelOrder = async (orderId: number) => {
-        try {
-            setUpdating(orderId);
-            const response = await fetch("/api/orders", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ OrderID: orderId, status: "cancelled" }),
-            });
-
-            if (!response.ok) {
-                throw new Error("Failed to cancel order");
-            }
-
-            // Update local state
-            setOrders((prev) =>
-                prev.map((order) =>
-                    order.OrderID === orderId ? { ...order, status: "cancelled" } : order
-                )
-            );
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to cancel order");
-        } finally {
-            setUpdating(null);
-        }
+    /**
+     * Cancel an order (wrapper around updateOrderStatus)
+     */
+    const cancelOrder = (orderId: number) => {
+        updateOrderStatus(orderId, "cancelled");
     };
 
-    const filteredOrders = orders.filter((order) => {
-        if (filter === "all") return true;
-        return order.status === filter;
-    });
-
-    const formatDate = (date: Date | string) => {
-        const d = new Date(date);
-        return d.toLocaleString();
-    };
-
-    const getStatusBadgeClass = (status: OrderStatus) => {
-        switch (status) {
-            case "pending":
-                return styles.statusPending;
-            case "in-progress":
-                return styles.statusInProgress;
-            case "completed":
-                return styles.statusCompleted;
-            case "cancelled":
-                return styles.statusCancelled;
-            case "cancelled-acknowledged":
-                return styles.statusCancelledAcknowledged;
-            default:
-                return styles.statusPending;
-        }
-    };
-
-    const getStatusLabel = (status: OrderStatus) => {
-        switch (status) {
-            case "pending":
-                return "Pending";
-            case "in-progress":
-                return "Preparing";
-            case "completed":
-                return "Ready for Pickup";
-            case "cancelled":
-                return "Cancelled";
-            case "cancelled-acknowledged":
-                return "Cancelled";
-            default:
-                return status;
-        }
-    };
-
-    const canCancel = (status: OrderStatus) => {
-        // Customers can only cancel pending orders
-        return status === "pending";
+    /**
+     * Get customer-friendly status label
+     */
+    const getCustomerStatusLabel = (status: OrderStatus) => {
+        return getStatusLabel(status, CUSTOMER_STATUS_LABELS);
     };
 
     if (authLoading) {
@@ -185,14 +109,14 @@ export default function CustomerOrdersPage() {
                 {error && <div className={styles.error}>{error}</div>}
 
                 <div className={styles.filters}>
-                    {(["all", "pending", "in-progress", "completed", "cancelled"] as FilterStatus[]).map((status) => (
+                    {CUSTOMER_FILTER_STATUSES.map((status) => (
                         <button
                             key={status}
                             className={`${styles.filterButton} ${filter === status ? styles.active : ""}`}
                             onClick={() => setFilter(status)}
                             style={{ "--theme-color": "#ef4444" } as React.CSSProperties}
                         >
-                            {status === "all" ? "All Orders" : getStatusLabel(status as OrderStatus)}
+                            {status === "all" ? "All Orders" : getCustomerStatusLabel(status as OrderStatus)}
                         </button>
                     ))}
                 </div>
@@ -203,7 +127,7 @@ export default function CustomerOrdersPage() {
                     <div className={styles.emptyState}>
                         {filter === "all" 
                             ? "You haven't placed any orders yet." 
-                            : `No orders with status "${getStatusLabel(filter as OrderStatus)}".`}
+                            : `No orders with status "${getCustomerStatusLabel(filter as OrderStatus)}".`}
                     </div>
                 ) : (
                     <div className={styles.ordersList}>
@@ -212,10 +136,10 @@ export default function CustomerOrdersPage() {
                                 <div className={styles.orderHeader}>
                                     <div className={styles.orderInfo}>
                                         <span className={styles.orderId}>Order #{order.OrderID}</span>
-                                        <span className={styles.orderTime}>{formatDate(order.OrderTime)}</span>
+                                        <span className={styles.orderTime}>{formatOrderDate(order.OrderTime)}</span>
                                     </div>
-                                    <span className={`${styles.statusBadge} ${getStatusBadgeClass(order.status)}`}>
-                                        {getStatusLabel(order.status)}
+                                    <span className={`${styles.statusBadge} ${getStatusBadgeClass(order.status, styles)}`}>
+                                        {getCustomerStatusLabel(order.status)}
                                     </span>
                                 </div>
 
@@ -241,7 +165,7 @@ export default function CustomerOrdersPage() {
                                     <span className={styles.totalAmount}>R{order.TotalPrice.toFixed(2)}</span>
                                 </div>
 
-                                {canCancel(order.status) && (
+                                {canCustomerCancel(order.status) && (
                                     <div className={`${styles.orderActions} ${styles.customerActions}`}>
                                         <button
                                             className={`${styles.actionButton} ${styles.cancelButton}`}
