@@ -7,7 +7,7 @@ import { useCreateUserWithEmailAndPassword } from "react-firebase-hooks/auth";
 import { updateProfile } from "firebase/auth";
 import { auth } from "@/firebase/config";
 
-import { authStyles } from "@/app/auth.module";
+import styles from "@/styles/Auth.module.css";
 
 // Customer registration page — collects name/email/password, creates
 // an account in Firebase Auth, assigns the `customer` role via the
@@ -87,27 +87,33 @@ export default function CustomerRegister() {
 	}
 
 	return (
-		<div style={authStyles.container}>
-			<h1 style={authStyles.title}>Sign Up</h1>
-			{signupError && <div style={authStyles.errorMEssage}>{signupError}</div>}
-			<form onSubmit={handleRegister}>
-				<div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-					<div style={{ flex: 1 }}>
-						<label htmlFor="firstName" style={authStyles.label}>
-							First name
-						</label>
-						<input
-							type="text"
-							id="firstName"
-							name="firstName"
-							required
-							style={authStyles.input}
-							value={firstName}
-							onChange={(e) => setFirstName(e.target.value)}
-						/>
+		<div className={styles.pageWrapper}>
+			<div className={styles.container}>
+				<div className={styles.logoContainer}>
+					<div className={styles.logo}>eT</div>
+				</div>
+				<h1 className={styles.title}>Create Account</h1>
+				<p className={styles.subtitle}>Join eTuckShop to start ordering</p>
+				{signupError && <div className={styles.errorMessage}>{signupError}</div>}
+				<form onSubmit={handleRegister}>
+					<div className={styles.nameRow}>
+						<div className={styles.flex1}>
+							<label htmlFor="firstName" className={styles.label}>
+								First name
+							</label>
+							<input
+								type="text"
+								id="firstName"
+								name="firstName"
+								required
+								placeholder="John"
+								className={styles.input}
+								value={firstName}
+								onChange={(e) => setFirstName(e.target.value)}
+							/>
 						</div>
-						<div style={{ flex: 1 }}>
-							<label htmlFor="lastName" style={authStyles.label}>
+						<div className={styles.flex1}>
+							<label htmlFor="lastName" className={styles.label}>
 								Last name
 							</label>
 							<input
@@ -115,46 +121,50 @@ export default function CustomerRegister() {
 								id="lastName"
 								name="lastName"
 								required
-								style={authStyles.input}
+								placeholder="Doe"
+								className={styles.input}
 								value={lastName}
 								onChange={(e) => setLastName(e.target.value)}
 							/>
 						</div>
 					</div>
-				<div style={authStyles.formGroup}>
-					<label htmlFor="email" style={authStyles.label}>
-						Email
-					</label>
-					<input
-						type="email"
-						id="email"
-						name="email"
-						required
-						style={authStyles.input}
-						value={email}
-						onChange={(e) => setEmail(e.target.value)}
-					/>
+					<div className={styles.formGroup}>
+						<label htmlFor="email" className={styles.label}>
+							Email
+						</label>
+						<input
+							type="email"
+							id="email"
+							name="email"
+							required
+							placeholder="john.doe@example.com"
+							className={styles.input}
+							value={email}
+							onChange={(e) => setEmail(e.target.value)}
+						/>
+					</div>
+					<div className={styles.formGroupLast}>
+						<label htmlFor="password" className={styles.label}>
+							Password
+						</label>
+						<input
+							type="password"
+							id="password"
+							name="password"
+							required
+							placeholder="Create a password"
+							className={styles.input}
+							value={password}
+							onChange={(e) => setPassword(e.target.value)}
+						/>
+					</div>
+					<button type="submit" className={styles.button}>
+						Create Account
+					</button>
+				</form>
+				<div className={styles.linkContainer}>
+					<Link href="/login">Already have an account? Sign In</Link>
 				</div>
-				<div style={authStyles.formGroupLast}>
-					<label htmlFor="password" style={authStyles.label}>
-						Password
-					</label>
-					<input
-						type="password"
-						id="password"
-						name="password"
-						required
-						style={authStyles.input}
-						value={password}
-						onChange={(e) => setPassword(e.target.value)}
-					/>
-				</div>
-				<button type="submit" style={authStyles.button}>
-					Sign Up
-				</button>
-			</form>
-			<div style={authStyles.linkContainer}>
-				<Link href="login">Already have an account? Login</Link>
 			</div>
 		</div>
 	);
