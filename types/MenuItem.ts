@@ -19,6 +19,8 @@ export type MenuItem = {
     imageUrl?: string;
     /** Whether the item is currently available */
     available: boolean;
+    /**Whether item is low in stock */
+    lowStock?: boolean;
 };
 
 /**

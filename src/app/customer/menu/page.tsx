@@ -11,115 +11,37 @@ import { useCart } from "@/context/CartContext";
 import CartSidebar from "@/components/CartSidebar";
 import Dashboard from "@/components/Dashboard";
 import type { MenuItem } from "@/types/MenuItem";
+import { InventoryItem, InventoryFormData, InventoryCategory } from "@/app/api/inventory/inventory";
 import styles from "@/styles/Menu.module.css";
 import customerStyles from "@/styles/CustomerHome.module.css";
 import { auth } from "@/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/firebase/config";
 
-// Sample menu items - in production, these would come from Firestore
-const MENU_ITEMS: MenuItem[] = [
-    // Snacks
-    {
-        id: "snack-1",
-        name: "Chips",
-        description: "Crispy potato chips, assorted flavors",
-        price: 1.50,
-        category: "Snacks",
-        available: true,
-    },
-    {
-        id: "snack-2",
-        name: "Chocolate Bar",
-        description: "Delicious milk chocolate bar",
-        price: 2.00,
-        category: "Snacks",
-        available: true,
-    },
-    {
-        id: "snack-3",
-        name: "Cookies",
-        description: "Fresh baked chocolate chip cookies (3 pack)",
-        price: 2.50,
-        category: "Snacks",
-        available: true,
-    },
-    {
-        id: "snack-4",
-        name: "Granola Bar",
-        description: "Healthy oat and honey granola bar",
-        price: 1.75,
-        category: "Snacks",
-        available: true,
-    },
-    // Drinks
-    {
-        id: "drink-1",
-        name: "Water Bottle",
-        description: "500ml purified water",
-        price: 1.00,
-        category: "Drinks",
-        available: true,
-    },
-    {
-        id: "drink-2",
-        name: "Soda",
-        description: "Assorted carbonated beverages",
-        price: 1.50,
-        category: "Drinks",
-        available: true,
-    },
-    {
-        id: "drink-3",
-        name: "Juice Box",
-        description: "100% natural fruit juice",
-        price: 1.75,
-        category: "Drinks",
-        available: true,
-    },
-    {
-        id: "drink-4",
-        name: "Iced Tea",
-        description: "Refreshing lemon iced tea",
-        price: 2.00,
-        category: "Drinks",
-        available: false,
-    },
-    // Meals
-    {
-        id: "meal-1",
-        name: "Sandwich",
-        description: "Ham and cheese sandwich on fresh bread",
-        price: 4.50,
-        category: "Meals",
-        available: true,
-    },
-    {
-        id: "meal-2",
-        name: "Hot Dog",
-        description: "Classic hot dog with your choice of toppings",
-        price: 3.50,
-        category: "Meals",
-        available: true,
-    },
-    {
-        id: "meal-3",
-        name: "Pizza Slice",
-        description: "Cheesy pepperoni pizza slice",
-        price: 3.00,
-        category: "Meals",
-        available: true,
-    },
-    {
-        id: "meal-4",
-        name: "Salad Bowl",
-        description: "Fresh garden salad with dressing",
-        price: 5.00,
-        category: "Meals",
-        available: true,
-    },
-];
+
+
+function mapCategory(cat: InventoryCategory): MenuItem["category"] {
+    switch (cat) {
+        case "snack":
+            return "Snacks";
+        case "drink":
+            return "Drinks";
+        case "food":
+            return "Food";
+        case "health and wellness":
+            return "Health and Wellness";
+        case "home care":
+            return "Home Care";
+        default:
+            return "Meals";
+    }
+}
 
 function MenuContent() {
+    const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+    const [itemsLoading, setItemsLoading] = useState(true);
+
     const { addItem, totalItems } = useCart();
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [user, setUser] = useState<{name: string, role: string, email?: string} | undefined>(undefined);
@@ -127,6 +49,38 @@ function MenuContent() {
     const [displayName, setDisplayName] = useState<string>("");
     const [loading, setLoading] = useState(true);
 
+    useEffect(() => {
+    async function loadMenuItems() {
+        try {
+            const ref = collection(db, "inventory");
+            const snapshot = await getDocs(ref);
+
+            const fetched: MenuItem[] = snapshot.docs.map((doc) => {
+                const data = doc.data() as InventoryItem;
+
+                return {
+                    id: doc.id,
+                    name: data.name,
+                    description: data.description || "",
+                    price: data.price || 0,
+                    category: mapCategory(data.category),
+                    lowStock: data.status === "low stock",
+                    available: data.status === "in stock" || data.status == "low stock",
+                };
+            });
+
+            setMenuItems(fetched);
+        } catch (error) {
+            console.error("Error loading menu items:", error);
+        }
+
+        setItemsLoading(false);
+        setLoading(false);
+    }
+
+    loadMenuItems();
+}, []);
+    /*
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
             if (firebaseUser) {
@@ -147,18 +101,16 @@ function MenuContent() {
         });
 
         return () => unsubscribe();
-    }, []);
+    }, []); */
 
     // Group menu items by category
-    const categories = MENU_ITEMS.reduce((acc, item) => {
-        if (!acc[item.category]) {
-            acc[item.category] = [];
-        }
-        acc[item.category].push(item);
-        return acc;
-    }, {} as Record<string, MenuItem[]>);
+    const categories = menuItems.reduce((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category].push(item);
+    return acc;
+}, {} as Record<string, MenuItem[]>);
 
-    if (loading) {
+    if (loading || itemsLoading) {
         return (
             <div className={customerStyles.loadingContainer}>
                 Loading...
@@ -192,7 +144,8 @@ function MenuContent() {
                             {items.map((item) => (
                                 <div
                                     key={item.id}
-                                    className={`${styles.menuItem} ${!item.available ? styles.unavailable : ""}`}
+                                    className={`${styles.menuItem} ${(!item.available && !item.lowStock) ? styles.unavailable : ""}`}
+                                    //className={`${styles.menuItem} ${!item.available ? styles.unavailable : ""}`}
                                 >
                                     <div
                                         className={styles.menuItemImage}
@@ -205,7 +158,9 @@ function MenuContent() {
                                     >
                                         {item.category === "Snacks" && "🍪"}
                                         {item.category === "Drinks" && "🥤"}
-                                        {item.category === "Meals" && "🍔"}
+                                        {item.category === "Food" && "🍔"}
+                                        {item.category === "Home Care" && "🏠"}
+                                        {item.category === "Health and Wellness" && "💊"}
                                     </div>
                                     <h3 className={styles.menuItemName}>{item.name}</h3>
                                     <p className={styles.menuItemDescription}>
@@ -215,17 +170,39 @@ function MenuContent() {
                                         <span className={styles.menuItemPrice}>
                                             ${item.price.toFixed(2)}
                                         </span>
-                                        {item.available ? (
+
+                                        {/* Low stock label */}
+                                        {item.lowStock && (
+                                            <span className={styles.lowStockLabel}>
+                                                Low Stock
+                                            </span>
+                                        )}
+
+                                        {/* Out of stock */}
+                                        {!item.available && (
+                                            <span className={styles.unavailableLabel}>
+                                                Unavailable
+                                            </span>
+                                        )}
+
+                                        {/* Add to cart button */}
+                                        {item.available && !item.lowStock &&(
                                             <button
                                                 className={styles.addButton}
                                                 onClick={() => addItem(item)}
                                             >
                                                 Add to Cart
                                             </button>
-                                        ) : (
-                                            <span className={styles.unavailableLabel}>
-                                                Unavailable
-                                            </span>
+                                        )}
+
+                                        {/* If low stock but still available → still allow adding */}
+                                        {item.available && item.lowStock &&(
+                                            <button
+                                                className={styles.addButton}
+                                                onClick={() => addItem(item)}
+                                            >
+                                                Add to Cart
+                                            </button>
                                         )}
                                     </div>
                                 </div>

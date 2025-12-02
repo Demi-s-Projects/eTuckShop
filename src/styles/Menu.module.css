@@ -150,6 +150,28 @@
     font-weight: 500;
 }
 
+.lowStockLabel {
+    color: orange;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.lowStockRibbon {
+  width: 120px;
+  background: #ff9500;
+  color: white;
+  text-align: center;
+  transform: rotate(-45deg);
+  position: absolute;
+  top: 12px;
+  left: -35px;
+  font-size: 0.7rem;
+  padding: 4px 0;
+  font-weight: 600;
+  z-index: 10;
+}
+
+
 /* Cart Sidebar Styles */
 .cartOverlay {
     position: fixed;
