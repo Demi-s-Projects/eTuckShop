@@ -1,10 +1,10 @@
 /**
  * Inventory Management Component
- * 
+ *
  * A spreadsheet-like interface for managing inventory items.
  * Supports inline editing, adding, updating, and deleting items.
  * Used by both owner and employee pages with theme customization.
- * 
+ *
  * Features:
  * - Spreadsheet-style table with inline editing
  * - Filter by stock status (all, in stock, low stock, out of stock)
@@ -16,7 +16,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { InventoryItem, InventoryFormData, InventoryCategory, InventoryStatus } from "@/app/api/inventory/inventory";
+import {
+  InventoryItem,
+  InventoryFormData,
+  InventoryCategory,
+  InventoryStatus,
+} from "@/app/api/inventory/inventory";
 import styles from "@/styles/Inventory.module.css";
 
 /** Props for the InventoryManagement component */
@@ -53,25 +58,31 @@ const INITIAL_FORM_DATA: InventoryFormData = {
   minStockThreshold: "10",
 };
 
-export default function InventoryManagement({ theme }: InventoryManagementProps) {
+export default function InventoryManagement({
+  theme,
+}: InventoryManagementProps) {
   // === State ===
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+  const [search, setSearch] = useState("");
+  const [sortField, setSortField] = useState<"name" | "category">("name");
+
   // Filter state
   const [filter, setFilter] = useState<"all" | InventoryStatus>("all");
-  
+
   // Inline editing state
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<InventoryFormData>(INITIAL_FORM_DATA);
-  
+  const [editData, setEditData] =
+    useState<InventoryFormData>(INITIAL_FORM_DATA);
+
   // Modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null);
-  const [formData, setFormData] = useState<InventoryFormData>(INITIAL_FORM_DATA);
+  const [formData, setFormData] =
+    useState<InventoryFormData>(INITIAL_FORM_DATA);
   const [formLoading, setFormLoading] = useState(false);
 
   // === Data Fetching ===
@@ -102,10 +113,20 @@ export default function InventoryManagement({ theme }: InventoryManagementProps)
   }, [fetchInventory]);
 
   // === Filtering ===
-  const filteredItems = items.filter((item) => {
-    if (filter === "all") return true;
-    return item.status === filter;
-  });
+  const filteredItems = items
+    // Stock filter
+    .filter((item) => {
+      if (filter === "all") return true;
+      return item.status === filter;
+    })
+    // Search filter
+    .filter((item) => item.name.toLowerCase().includes(search.toLowerCase()))
+    // Alphabetical sorting
+    .sort((a, b) => {
+      const A = a[sortField].toLowerCase();
+      const B = b[sortField].toLowerCase();
+      return A.localeCompare(B);
+    });
 
   // === Status Badge Styling ===
   const getStatusClass = (status: InventoryStatus): string => {
@@ -128,7 +149,7 @@ export default function InventoryManagement({ theme }: InventoryManagementProps)
     // Also handle legacy field name 'minStock' for backward compatibility
     const itemData = item as InventoryItem & { minStock?: number };
     const minStockValue = item.minStockThreshold ?? itemData.minStock ?? 10;
-    
+
     const newEditData: InventoryFormData = {
       name: item.name || "",
       description: item.description || "",
@@ -186,7 +207,7 @@ export default function InventoryManagement({ theme }: InventoryManagementProps)
   // === Add Item ===
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (!formData.name.trim()) {
       setError("Item name is required");
@@ -274,12 +295,16 @@ export default function InventoryManagement({ theme }: InventoryManagementProps)
 
   // === Theme-based classes ===
   const themeClasses = {
-    filterButton: theme === "blue" ? styles.filterButtonBlue : styles.filterButtonGreen,
+    filterButton:
+      theme === "blue" ? styles.filterButtonBlue : styles.filterButtonGreen,
     addButton: theme === "blue" ? styles.addButtonBlue : styles.addButtonGreen,
     cellInput: theme === "green" ? styles.cellInputGreen : "",
     cellSelect: theme === "green" ? styles.cellSelectGreen : "",
     formInput: theme === "green" ? styles.formInputGreen : "",
-    modalSubmit: theme === "blue" ? styles.modalSubmitButtonBlue : styles.modalSubmitButtonGreen,
+    modalSubmit:
+      theme === "blue"
+        ? styles.modalSubmitButtonBlue
+        : styles.modalSubmitButtonGreen,
   };
 
   // === Render ===
@@ -302,6 +327,26 @@ export default function InventoryManagement({ theme }: InventoryManagementProps)
         >
           + Add Item
         </button>
+      </div>
+
+      {/*Search and Sort */}
+      <div className={styles.filterBar}>
+        <input
+          type="text"
+          placeholder="Search by name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className={styles.searchInput}
+        />
+
+        <select
+          value={sortField}
+          onChange={(e) => setSortField(e.target.value as "name" | "category")}
+          className={styles.filterSelect}
+        >
+          <option value="name">Sort by Name (A–Z)</option>
+          <option value="category">Sort by Category (A–Z)</option>
+        </select>
       </div>
 
       {/* Filters */}
@@ -369,13 +414,18 @@ export default function InventoryManagement({ theme }: InventoryManagementProps)
                     </td>
 
                     {/* Category */}
-                    <td className={`${styles.editableCell} ${styles.categoryCell}`}>
+                    <td
+                      className={`${styles.editableCell} ${styles.categoryCell}`}
+                    >
                       {editingId === item.id ? (
                         <select
                           className={`${styles.cellSelect} ${themeClasses.cellSelect}`}
                           value={editData.category}
                           onChange={(e) =>
-                            setEditData({ ...editData, category: e.target.value })
+                            setEditData({
+                              ...editData,
+                              category: e.target.value,
+                            })
                           }
                         >
                           {CATEGORY_OPTIONS.map((cat) => (
@@ -390,7 +440,9 @@ export default function InventoryManagement({ theme }: InventoryManagementProps)
                     </td>
 
                     {/* Price */}
-                    <td className={`${styles.editableCell} ${styles.priceCell}`}>
+                    <td
+                      className={`${styles.editableCell} ${styles.priceCell}`}
+                    >
                       {editingId === item.id ? (
                         <input
                           type="number"
@@ -408,7 +460,9 @@ export default function InventoryManagement({ theme }: InventoryManagementProps)
                     </td>
 
                     {/* Cost */}
-                    <td className={`${styles.editableCell} ${styles.priceCell}`}>
+                    <td
+                      className={`${styles.editableCell} ${styles.priceCell}`}
+                    >
                       {editingId === item.id ? (
                         <input
                           type="number"
@@ -417,7 +471,10 @@ export default function InventoryManagement({ theme }: InventoryManagementProps)
                           className={`${styles.cellInput} ${themeClasses.cellInput}`}
                           value={editData.costPrice}
                           onChange={(e) =>
-                            setEditData({ ...editData, costPrice: e.target.value })
+                            setEditData({
+                              ...editData,
+                              costPrice: e.target.value,
+                            })
                           }
                         />
                       ) : (
@@ -434,7 +491,10 @@ export default function InventoryManagement({ theme }: InventoryManagementProps)
                           className={`${styles.cellInput} ${themeClasses.cellInput}`}
                           value={editData.quantity}
                           onChange={(e) =>
-                            setEditData({ ...editData, quantity: e.target.value })
+                            setEditData({
+                              ...editData,
+                              quantity: e.target.value,
+                            })
                           }
                         />
                       ) : (
