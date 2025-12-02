@@ -1,3 +1,19 @@
+/**
+ * Owner Orders Page
+ * 
+ * Full order management interface for store owners.
+ * Owners have complete control over all orders with the same capabilities as employees.
+ * 
+ * Features:
+ * - View all orders in the system
+ * - Filter orders by status for efficient workflow management
+ * - Start preparing orders (pending → in-progress)
+ * - Mark orders as completed (in-progress → completed)
+ * - Cancel orders when necessary
+ * - Acknowledge customer cancellations
+ * - Blue theme consistent with owner role
+ */
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -5,6 +21,7 @@ import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
 import type { Order, OrderStatus, OrderItem } from "@/types/Order";
 
+/** Filter options including 'all' plus all order statuses */
 type FilterStatus = "all" | OrderStatus;
 
 export default function OwnerOrdersPage() {

@@ -1,3 +1,25 @@
+/**
+ * Cart Sidebar Component
+ * 
+ * A sliding sidebar panel that displays the customer's shopping cart.
+ * Allows customers to review items, adjust quantities, and place orders.
+ * 
+ * Features:
+ * - Displays all items currently in the cart
+ * - Quantity adjustment (increase/decrease) for each item
+ * - Remove individual items from cart
+ * - Shows running total price
+ * - Checkout functionality that creates an order via API
+ * - Success/error feedback for order placement
+ * - Overlay background that closes sidebar when clicked
+ * 
+ * Props:
+ * - isOpen: Controls sidebar visibility
+ * - onClose: Callback to close the sidebar
+ * - userId: Firebase Auth UID for order association
+ * - displayName: Customer's display name for the order
+ */
+
 "use client";
 import { useState } from "react";
 import { useCart } from "@/context/CartContext";
@@ -5,9 +27,13 @@ import type { OrderItem } from "@/types/Order";
 import styles from "@/styles/Menu.module.css";
 
 interface CartSidebarProps {
+    /** Whether the sidebar is currently visible */
     isOpen: boolean;
+    /** Callback function to close the sidebar */
     onClose: () => void;
+    /** Firebase Auth UID of the current user */
     userId: string;
+    /** Display name of the current user for the order */
     displayName: string;
 }
 

@@ -1,3 +1,17 @@
+/**
+ * Customer Orders Page
+ * 
+ * Displays the order history for the currently logged-in customer.
+ * Customers can view their orders, filter by status, and cancel pending orders.
+ * 
+ * Features:
+ * - View all orders placed by the customer
+ * - Filter orders by status (pending, preparing, completed, cancelled)
+ * - Cancel pending orders (before preparation begins)
+ * - Real-time status updates with visual feedback
+ * - Responsive order cards with item details and totals
+ */
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -7,6 +21,7 @@ import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
 import type { Order, OrderStatus, OrderItem } from "@/types/Order";
 
+/** Filter options including 'all' plus all order statuses */
 type FilterStatus = "all" | OrderStatus;
 
 export default function CustomerOrdersPage() {

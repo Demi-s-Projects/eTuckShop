@@ -1,18 +1,47 @@
+/**
+ * Cart Context Provider
+ * 
+ * Provides global cart state management across the customer-facing application.
+ * Persists cart data in localStorage tied to the authenticated user's ID.
+ * 
+ * Features:
+ * - Add items to cart (increments quantity if already exists)
+ * - Remove items from cart
+ * - Update item quantities
+ * - Clear entire cart (on checkout or logout)
+ * - Automatic persistence to localStorage per user
+ * - Cart state restoration on page refresh
+ * - Computed totals (item count and price)
+ * 
+ * Usage:
+ * 1. Wrap your component tree with <CartProvider>
+ * 2. Use the useCart() hook to access cart state and actions
+ */
+
 "use client";
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import type { MenuItem, CartItem } from "@/types/MenuItem";
 import { auth } from "@/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
 
+/** localStorage key prefix for cart storage */
 const CART_STORAGE_KEY = "etuckshop_cart";
 
+/** Shape of the cart context value */
 interface CartContextType {
+    /** Array of items currently in the cart */
     items: CartItem[];
+    /** Add a menu item to the cart (or increment if exists) */
     addItem: (item: MenuItem) => void;
+    /** Remove an item completely from the cart */
     removeItem: (itemId: string) => void;
+    /** Update the quantity of a specific item */
     updateQuantity: (itemId: string, quantity: number) => void;
+    /** Clear all items from the cart */
     clearCart: () => void;
+    /** Total number of items in the cart (sum of quantities) */
     totalItems: number;
+    /** Total price of all items in the cart */
     totalPrice: number;
 }
 
