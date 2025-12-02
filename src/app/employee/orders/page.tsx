@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Dashboard from "@/components/dashboard";
+import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
 import type { Order, OrderStatus, OrderItem } from "@/types/Order";
 

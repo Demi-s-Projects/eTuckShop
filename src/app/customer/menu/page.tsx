@@ -9,7 +9,7 @@
 import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import CartSidebar from "@/components/CartSidebar";
-import Dashboard from "@/components/dashboard";
+import Dashboard from "@/components/Dashboard";
 import type { MenuItem } from "@/types/MenuItem";
 import styles from "@/styles/Menu.module.css";
 import customerStyles from "@/styles/CustomerHome.module.css";

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { auth } from "@/firebase/config";
 import { onAuthStateChanged, User } from "firebase/auth";
-import Dashboard from "@/components/dashboard";
+import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
 import type { Order, OrderStatus, OrderItem } from "@/types/Order";
 
