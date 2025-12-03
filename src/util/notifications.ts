@@ -11,7 +11,6 @@ import {
   writeBatch,
 } from "firebase/firestore";
 
-/** Notification type */
 export interface Notification {
   id: string;
   userId: string;
@@ -35,8 +34,30 @@ export async function addNotification(userId: string, type: string, message: str
 }
 
 /**
+ * Add a notification for all users with a specific role (owner/employee)
+ */
+export async function addNotificationToRole(role: "owner" | "employee", type: string, message: string) {
+  // Fetch all users with the role
+  const usersQuery = query(collection(db, "users"), where("role", "==", role));
+  const snapshot = await getDocs(usersQuery);
+  const batch = writeBatch(db);
+
+  snapshot.forEach((userDoc) => {
+    const notifRef = doc(collection(db, "notifications"));
+    batch.set(notifRef, {
+      userId: userDoc.id,
+      type,
+      message,
+      read: false,
+      timestamp: Date.now(),
+    });
+  });
+
+  await batch.commit();
+}
+
+/**
  * Subscribe to notifications for a user in real-time
- * No composite index needed; sorts client-side
  */
 export function subscribeNotifications(
   userId: string,
@@ -46,10 +67,7 @@ export function subscribeNotifications(
 
   return onSnapshot(q, (snapshot) => {
     const notifications: Notification[] = snapshot.docs
-      .map((doc) => {
-        const data = doc.data() as Omit<Notification, "id">;
-        return { id: doc.id, ...data };
-      })
+      .map((doc) => ({ id: doc.id, ...(doc.data() as Omit<Notification, "id">) }))
       .sort((a, b) => b.timestamp - a.timestamp); // newest first
 
     callback(notifications);
@@ -70,7 +88,6 @@ export async function markAsRead(notificationId: string) {
 export async function clearNotifications(userId: string) {
   const q = query(collection(db, "notifications"), where("userId", "==", userId));
   const snapshot = await getDocs(q);
-
   const batch = writeBatch(db);
   snapshot.forEach((docItem) => batch.delete(docItem.ref));
   await batch.commit();

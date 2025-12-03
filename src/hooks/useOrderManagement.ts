@@ -30,6 +30,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { Order, OrderStatus } from "@/types/Order";
+import { addNotification } from "@/util/notifications";
 
 /** Filter options including 'all' plus all order statuses */
 export type FilterStatus = "all" | OrderStatus;
@@ -138,32 +139,54 @@ export function useOrderManagement(options: UseOrderManagementOptions = {}): Use
      * @param orderId - The OrderID to update
      * @param newStatus - The new status to set
      */
-    const updateOrderStatus = useCallback(async (orderId: number, newStatus: OrderStatus) => {
+
+    const updateOrderStatus = useCallback(
+    async (orderId: number, newStatus: OrderStatus) => {
         try {
-            setUpdating(orderId);
-            
-            const response = await fetch("/api/orders", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ OrderID: orderId, status: newStatus }),
-            });
+        setUpdating(orderId);
 
-            if (!response.ok) {
-                throw new Error("Failed to update order");
-            }
+        const response = await fetch("/api/orders", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ OrderID: orderId, status: newStatus }),
+        });
 
-            // Update local state optimistically
-            setOrders((prev) =>
-                prev.map((order) =>
-                    order.OrderID === orderId ? { ...order, status: newStatus } : order
-                )
-            );
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to update order");
-        } finally {
-            setUpdating(null);
+        if (!response.ok) {
+            throw new Error("Failed to update order");
         }
-    }, []);
+
+        // Optimistically update local state
+        let updatedOrder: Order | undefined;
+        setOrders((prev) =>
+            prev.map((order) => {
+            if (order.OrderID === orderId) {
+                updatedOrder = { ...order, status: newStatus };
+                return updatedOrder;
+            }
+            return order;
+            })
+        );
+
+        // Notify customer if staff cancelled the order
+        if (
+            newStatus === "cancelled" &&
+            updatedOrder &&
+            updatedOrder.userId // assuming your Order type has UserID
+        ) {
+            await addNotification(
+            updatedOrder.userId,
+            "order-cancelled",
+            `Your order #${updatedOrder.OrderID} has been cancelled by the staff.`
+            );
+        }
+
+        } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to update order");
+        } finally {
+        setUpdating(null);
+        }
+    },[]);
+
 
     /**
      * Filters orders based on current filter status
