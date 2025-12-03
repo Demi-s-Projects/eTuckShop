@@ -12,15 +12,21 @@
 "use client";
 
 import { CartProvider } from "@/context/CartContext";
+import { NotificationProvider } from "@/context/NotificationContext";
 import { MenuProvider } from "@/context/MenuContext";
 import { ReactNode } from "react";
+import { Toaster } from "react-hot-toast";
 
 export default function CustomerLayout({ children }: { children: ReactNode }) {
     return (
-        <CartProvider>
+        <NotificationProvider>
+            <CartProvider>
+                {/* Global toast notifications */}
+                <Toaster position="top-center" />
             <MenuProvider>
                 {children}
             </MenuProvider>
-        </CartProvider>
+            </CartProvider>
+        </NotificationProvider>
     );
 }
