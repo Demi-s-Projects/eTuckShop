@@ -71,9 +71,10 @@ export default function OwnerReportsPage() {
 		setAllAvailableColumns([]);
 
 		try {
+            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 			const endpoint =
 				reportType === "sales"
-					? `/api/reports/sales?startDate=${startDate}&endDate=${endDate}`
+					? `/api/reports/sales?startDate=${startDate}&endDate=${endDate}&timeZone=${timezone}`
 					: `/api/reports/items?startDate=${startDate}&endDate=${endDate}`;
             
             const token = await authUser?.firebaseUser?.getIdToken();
