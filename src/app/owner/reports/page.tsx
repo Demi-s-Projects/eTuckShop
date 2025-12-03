@@ -10,13 +10,11 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
-import { auth } from "@/firebase/config";
-import { onAuthStateChanged } from "firebase/auth";
+import { useState } from "react";
+import { useAuth, formatDashboardUser } from "@/context/AuthContext";
 import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Reports.module.css";
 
-type UserInfo = { name: string; role: string; email?: string } | undefined;
 type ReportType = "sales" | "items" | null;
 
 interface SalesData {
@@ -36,8 +34,9 @@ interface ItemData {
 }
 
 export default function OwnerReportsPage() {
-	const [user, setUser] = useState<UserInfo>(undefined);
-	const [authLoading, setAuthLoading] = useState(true);
+	// Get auth state from centralized context
+	const { user: authUser, loading: authLoading } = useAuth();
+	const user = formatDashboardUser(authUser, "Owner");
 
 	// Report generation state
 	const [reportType, setReportType] = useState<ReportType>(null);
@@ -53,23 +52,6 @@ export default function OwnerReportsPage() {
 	const [sortColumn, setSortColumn] = useState<string | null>(null);
 	const [sortAsc, setSortAsc] = useState(true);
 	const [filterText, setFilterText] = useState("");
-
-	useEffect(() => {
-		const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-			if (firebaseUser) {
-				setUser({
-					name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Owner",
-					role: "Owner",
-					email: firebaseUser.email || undefined,
-				});
-			} else {
-				setUser(undefined);
-			}
-			setAuthLoading(false);
-		});
-
-		return () => unsubscribe();
-	}, []);
 
 	if (authLoading) {
 		return <div style={{ padding: 24 }}>Loading...</div>;
@@ -94,7 +76,7 @@ export default function OwnerReportsPage() {
 					? `/api/reports/sales?startDate=${startDate}&endDate=${endDate}`
 					: `/api/reports/items?startDate=${startDate}&endDate=${endDate}`;
             
-            const token = await auth.currentUser?.getIdToken();
+            const token = await authUser?.firebaseUser?.getIdToken();
 			const response = await fetch(endpoint, {
 				headers: {
 					"Content-Type": "application/json",

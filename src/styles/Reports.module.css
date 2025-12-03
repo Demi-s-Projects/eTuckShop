@@ -199,6 +199,7 @@
 }
 
 .checkboxLabel {
+  color: #1e293b;
   display: flex;
   align-items: center;
   gap: 6px;

@@ -18,9 +18,7 @@
 
 import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
-import { useState, useEffect } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/firebase/config";
+import { useAuth, formatDashboardUser } from "@/context/AuthContext";
 import type { OrderStatus, OrderItem } from "@/types/Order";
 import {
     useOrderManagement,
@@ -30,11 +28,12 @@ import {
     STAFF_FILTER_STATUSES,
 } from "@/hooks/useOrderManagement";
 
-type UserInfo = { name: string; role: string; email?: string } | undefined;
-
 
 export default function EmployeeOrdersPage() {
-    const [user, setUser] = useState<UserInfo>(undefined);
+    // Get auth state from centralized context
+    const { user: authUser, loading: authLoading } = useAuth();
+    const user = formatDashboardUser(authUser, "Employee");
+    
     // Use the shared order management hook
     const {
         loading,
@@ -47,21 +46,15 @@ export default function EmployeeOrdersPage() {
         filteredOrders,
     } = useOrderManagement();
 
-    useEffect(() => {
-		const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-			if (firebaseUser) {
-				setUser({
-					name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Owner",
-					role: "Owner",
-					email: firebaseUser.email || undefined,
-				});
-			} else {
-				setUser(undefined);
-			}
-		});
-
-		return () => unsubscribe();
-	}, []);
+    if (authLoading) {
+        return (
+            <Dashboard theme="green" user={{ name: "Loading...", role: "Employee" }}>
+                <div className={styles.container}>
+                    <div className={styles.loading}>Loading...</div>
+                </div>
+            </Dashboard>
+        );
+    }
 
     return (
         <Dashboard theme="green" user={user}>

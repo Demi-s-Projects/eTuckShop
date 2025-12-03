@@ -15,11 +15,10 @@
  */
 
 "use client";
-import { useState, useEffect } from "react";
-import { auth } from "@/firebase/config";
+
 import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
-import { onAuthStateChanged } from "firebase/auth";
+import { useAuth, formatDashboardUser } from "@/context/AuthContext";
 import type { OrderStatus, OrderItem } from "@/types/Order";
 import {
     useOrderManagement,
@@ -30,7 +29,10 @@ import {
 } from "@/hooks/useOrderManagement";
 
 export default function OwnerOrdersPage() {
-    const [user, setUser] = useState<{name: string, role: string, email?: string} | undefined>(undefined);
+    // Get auth state from centralized context
+    const { user: authUser, loading: authLoading } = useAuth();
+    const user = formatDashboardUser(authUser, "Owner");
+    
     // Use the shared order management hook
     const {
         loading,
@@ -43,24 +45,15 @@ export default function OwnerOrdersPage() {
         filteredOrders,
     } = useOrderManagement();
 
-      useEffect(() => {
-        // Subscribe to authentication state changes
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-            if (firebaseUser) {
-                // Map Firebase user to Dashboard user format
-                setUser({
-                    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Owner',
-                    role: 'Owner',
-                    email: firebaseUser.email || undefined
-                });
-            } else {
-                setUser(undefined);
-            }
-        });
-
-        // Cleanup subscription on unmount
-        return () => unsubscribe();
-    }, []);
+    if (authLoading) {
+        return (
+            <Dashboard theme="blue" user={{ name: "Loading...", role: "Owner" }}>
+                <div className={styles.container}>
+                    <div className={styles.loading}>Loading...</div>
+                </div>
+            </Dashboard>
+        );
+    }
 
     return (
         <Dashboard theme="blue" user={user}>
