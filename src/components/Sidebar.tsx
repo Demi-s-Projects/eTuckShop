@@ -28,23 +28,24 @@ interface SidebarProps {
 const navItemsByRole: Record<string, Array<{ icon: string; label: string; path: string }>> = {
   owner: [
     { icon: "🏠", label: 'Dashboard', path: '/owner/home' },
-    { icon: "📊", label: 'Analytics', path: '/owner/analytics' },
-    { icon: "👥", label: 'Users', path: '/owner/users' },
     { icon: "📦", label: 'Inventory', path: '/owner/inventory' },
     { icon: "📋", label: 'Orders', path: '/owner/orders' },
-    { icon: "⚙️", label: 'Settings', path: '/owner/settings' },
+    { icon: "📝", label: 'Reports', path: '/owner/reports' },
+    // { icon: "📊", label: 'Analytics', path: '/owner/analytics' },
+    // { icon: "👥", label: 'Users', path: '/owner/users' },
+    // { icon: "⚙️", label: 'Settings', path: '/owner/settings' },
   ],
   employee: [
     { icon: "🏠", label: 'Dashboard', path: '/employee/home' },
     { icon: "📋", label: 'Orders', path: '/employee/orders' },
     { icon: "📦", label: 'Inventory', path: '/employee/inventory' },
-    { icon: "⚙️", label: 'Settings', path: '/employee/settings' },
+    //{ icon: "⚙️", label: 'Settings', path: '/employee/settings' },
   ],
   customer: [
     { icon: "🏠", label: 'Dashboard', path: '/customer/home' },
     { icon: "🍔", label: 'Menu', path: '/customer/menu' },
     { icon: "📋", label: 'My Orders', path: '/customer/orders' },
-    { icon: "⚙️", label: 'Settings', path: '/customer/settings' },
+   // { icon: "⚙️", label: 'Settings', path: '/customer/settings' },
   ],
 };
 

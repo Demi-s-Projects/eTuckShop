@@ -18,6 +18,7 @@
 
 import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
+import { useAuth, formatDashboardUser } from "@/context/AuthContext";
 import type { OrderStatus, OrderItem } from "@/types/Order";
 import {
     useOrderManagement,
@@ -28,6 +29,10 @@ import {
 } from "@/hooks/useOrderManagement";
 
 export default function OwnerOrdersPage() {
+    // Get auth state from centralized context
+    const { user: authUser, loading: authLoading } = useAuth();
+    const user = formatDashboardUser(authUser, "Owner");
+    
     // Use the shared order management hook
     const {
         loading,
@@ -40,8 +45,18 @@ export default function OwnerOrdersPage() {
         filteredOrders,
     } = useOrderManagement();
 
+    if (authLoading) {
+        return (
+            <Dashboard theme="blue" user={{ name: "Loading...", role: "Owner" }}>
+                <div className={styles.container}>
+                    <div className={styles.loading}>Loading...</div>
+                </div>
+            </Dashboard>
+        );
+    }
+
     return (
-        <Dashboard theme="blue">
+        <Dashboard theme="blue" user={user}>
             <div className={styles.container}>
                 <div className={styles.headerRow}>
                     <h1 className={styles.title}>Order Management</h1>

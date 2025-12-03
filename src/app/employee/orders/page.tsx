@@ -18,6 +18,7 @@
 
 import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
+import { useAuth, formatDashboardUser } from "@/context/AuthContext";
 import type { OrderStatus, OrderItem } from "@/types/Order";
 import {
     useOrderManagement,
@@ -27,13 +28,12 @@ import {
     STAFF_FILTER_STATUSES,
 } from "@/hooks/useOrderManagement";
 
-/** User object for Dashboard to display correct sidebar */
-const dashboardUser = {
-    name: "Employee",
-    role: "employee",
-};
 
 export default function EmployeeOrdersPage() {
+    // Get auth state from centralized context
+    const { user: authUser, loading: authLoading } = useAuth();
+    const user = formatDashboardUser(authUser, "Employee");
+    
     // Use the shared order management hook
     const {
         loading,
@@ -46,8 +46,18 @@ export default function EmployeeOrdersPage() {
         filteredOrders,
     } = useOrderManagement();
 
+    if (authLoading) {
+        return (
+            <Dashboard theme="green" user={{ name: "Loading...", role: "Employee" }}>
+                <div className={styles.container}>
+                    <div className={styles.loading}>Loading...</div>
+                </div>
+            </Dashboard>
+        );
+    }
+
     return (
-        <Dashboard theme="green" user={dashboardUser}>
+        <Dashboard theme="green" user={user}>
             <div className={styles.container}>
                 <div className={styles.headerRow}>
                     <h1 className={styles.title}>Order Management</h1>
