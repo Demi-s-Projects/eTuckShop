@@ -30,7 +30,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { Order, OrderStatus } from "@/types/Order";
-import { addNotification } from "@/util/notifications";
+// Server will create notifications for order events; client-side notification creation removed to avoid duplicates
 
 /** Filter options including 'all' plus all order statuses */
 export type FilterStatus = "all" | OrderStatus;
@@ -165,18 +165,7 @@ export function useOrderManagement(options: UseOrderManagementOptions = {}): Use
             })
         );
 
-        // Notify customer if staff cancelled the order
-        if (
-            newStatus === "cancelled" &&
-            updatedOrder &&
-            updatedOrder.userId // assuming your Order type has UserID
-        ) {
-            await addNotification(
-            updatedOrder.userId,
-            "order-cancelled",
-            `Your order #${updatedOrder.OrderID} has been cancelled by the staff.`
-            );
-        }
+        // Server will create notifications for status changes (customer notified server-side)
 
         } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to update order");

@@ -43,6 +43,7 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
     const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [orderSuccess, setOrderSuccess] = useState(false);
+    const [cartCleared, setCartCleared] = useState(false);
     const [orderError, setOrderError] = useState("");
 
     // Clear error when cart is modified (item removed, quantity changed, or cart cleared)
@@ -59,6 +60,8 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
     const handleClearCart = () => {
         setOrderError("");
         clearCart();
+        setCartCleared(true);
+        setTimeout(() => setCartCleared(false), 2000);
     };
 
     const handleCheckout = async () => {
@@ -98,10 +101,14 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
             const orderData = await response.json();
             const orderId = orderData.orderId;
 
-            // Clear cart and redirect to billing page
-            clearCart();
-            onClose();
-            router.push(`/customer/billing?orderID=${orderId}`);
+            setOrderSuccess(true);
+            setTimeout(() => setOrderSuccess(false), 2000);
+            // Only clear cart after showing success message
+            setTimeout(() => {
+                clearCart();
+                onClose();
+                router.push(`/customer/billing?orderID=${orderId}`);
+            }, 2000);
         } catch (error) {
             console.error("Error placing order:", error);
             setOrderError(error instanceof Error ? error.message : "Failed to place order");
@@ -127,6 +134,11 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
                     {orderSuccess && (
                         <div className={styles.successMessage}>
                             Order placed successfully! 🎉
+                        </div>
+                    )}
+                    {cartCleared && (
+                        <div className={styles.successMessage}>
+                            Cart cleared!
                         </div>
                     )}
                     {orderError && (

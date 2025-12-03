@@ -1,10 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { subscribeNotifications, markAsRead } from "@/util/notifications";
-import { useCart } from "./CartContext"; // optional if you want userId from cart/auth
-import { auth } from "@/firebase/config";
-import { onAuthStateChanged } from "firebase/auth";
+import { subscribeNotifications, markAsRead, clearNotifications as clearNotificationsUtil, markAllAsRead as markAllAsReadUtil } from "@/util/notifications";
+import { useAuth } from "@/context/AuthContext";
 
 export interface Notification {
   id: string;
@@ -17,6 +15,8 @@ export interface Notification {
 interface NotificationContextType {
   notifications: Notification[];
   markNotificationRead: (id: string) => void;
+  clearNotifications: () => Promise<void>;
+  markAllRead: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -25,30 +25,51 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Listen for auth state changes
+  // Use AuthContext to get authenticated user instead of creating a separate auth listener
+  const authContext = useAuth();
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (user) setUserId(user.uid);
-      else setUserId(null);
-    });
-    return () => unsubscribeAuth();
-  }, []);
+    if (authContext && authContext.user) {
+      setUserId(authContext.user.uid);
+    } else {
+      setUserId(null);
+    }
+  }, [authContext]);
 
   // Subscribe to notifications in real-time
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setNotifications([]);
+      return;
+    }
     const unsubscribe = subscribeNotifications(userId, (data) => {
       setNotifications(data);
     });
-    return () => unsubscribe();
+    return () => unsubscribe && unsubscribe();
   }, [userId]);
 
   const markNotificationRead = async (id: string) => {
     await markAsRead(id);
   };
 
+  const clearNotifications = async () => {
+    if (!userId) return;
+    await clearNotificationsUtil(userId);
+    setNotifications([]);
+  };
+
+  const markAllRead = async () => {
+    if (!userId) return;
+    try {
+      await markAllAsReadUtil(userId);
+      // optimistically update local state
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (err) {
+      console.error("Failed to mark all notifications read:", err);
+    }
+  };
+
   return (
-    <NotificationContext.Provider value={{ notifications, markNotificationRead }}>
+    <NotificationContext.Provider value={{ notifications, markNotificationRead, clearNotifications, markAllRead }}>
       {children}
     </NotificationContext.Provider>
   );

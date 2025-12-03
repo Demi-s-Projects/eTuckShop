@@ -83,6 +83,18 @@ export async function markAsRead(notificationId: string) {
 }
 
 /**
+ * Mark all notifications for a user as read (batched)
+ */
+export async function markAllAsRead(userId: string) {
+  const q = query(collection(db, "notifications"), where("userId", "==", userId), where("read", "==", false));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return;
+  const batch = writeBatch(db);
+  snapshot.forEach((docItem) => batch.update(doc(db, "notifications", docItem.id), { read: true }));
+  await batch.commit();
+}
+
+/**
  * Clear all notifications for a user
  */
 export async function clearNotifications(userId: string) {
