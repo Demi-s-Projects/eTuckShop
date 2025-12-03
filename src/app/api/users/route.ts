@@ -1,4 +1,4 @@
-import { adminAuth } from "@/firebase/admin";
+import { adminAuth, adminDB } from "@/firebase/admin";
 import { VALID_ROLES } from "@/util/consts";
 
 export async function POST(request: Request) {
@@ -32,7 +32,20 @@ export async function POST(request: Request) {
         // We can get this from the user's token elsewhere
 		await adminAuth.setCustomUserClaims(decoded.uid, { role });
 
-		console.log("User created with role:", role);
+		// Create or update a Firestore users document for this user
+		// This document stores user metadata and is used for staff notifications
+		const userDocRef = adminDB.collection("users").doc(decoded.uid);
+		const userDocData = {
+			uid: decoded.uid,
+			email: decoded.email || "",
+			displayName: decoded.name || decoded.email?.split("@")[0] || "User",
+			role: role,
+			createdAt: new Date(),
+			updatedAt: new Date(),
+		};
+		await userDocRef.set(userDocData, { merge: true });
+
+		console.log("User created with role:", role, "uid:", decoded.uid);
 
 		return Response.json({ success: true }, { status: 201 });
 	} catch (error) {

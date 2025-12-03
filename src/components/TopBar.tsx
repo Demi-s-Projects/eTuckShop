@@ -10,6 +10,7 @@
 import React from 'react';
 import styles from '@/styles/TopBar.module.css';
 import LogoutButton from './LogoutButton';
+import Notifications from './Notifications';
 
 interface TopBarProps {
   /** Callback to toggle the sidebar on mobile */
@@ -60,7 +61,9 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick, user }) => {
         
         {/* Reusing the LogoutButton component */}
         <div className={styles.logoutWrapper}>
-            <LogoutButton width="auto" className={styles.logoutButton} />
+          <Notifications />
+          <span style={{ marginLeft: 8 }} />
+          <LogoutButton width="auto" className={styles.logoutButton} />
         </div>
       </div>
     </header>

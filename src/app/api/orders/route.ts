@@ -62,6 +62,123 @@ async function verifyAuth(request: Request) {
 }
 
 /**
+ * Creates notifications for staff about inventory stock status changes
+ * Notifies when items move to "low stock" or "out of stock"
+ */
+async function notifyStaffAboutStockChanges(
+    stockStatusChanges: Array<{
+        itemId: string;
+        itemName: string;
+        oldStatus: InventoryStatus;
+        newStatus: InventoryStatus;
+        newQuantity: number;
+        minStockThreshold: number;
+    }>
+): Promise<void> {
+    if (stockStatusChanges.length === 0) return;
+
+    try {
+        // Query for all staff users
+        const ownerSnapshot = await adminDB
+            .collection("users")
+            .where("role", "==", "owner")
+            .get();
+        
+        const employeeSnapshot = await adminDB
+            .collection("users")
+            .where("role", "==", "employee")
+            .get();
+        
+        const staffDocs = [...ownerSnapshot.docs, ...employeeSnapshot.docs];
+        
+        if (staffDocs.length === 0) return;
+        
+        // Batch write notifications for all staff about each status change
+        const batch = adminDB.batch();
+        const timestamp = Date.now();
+        
+        for (const change of stockStatusChanges) {
+            // Only notify for transitions to critical states
+            const shouldNotify = change.newStatus === "out of stock" || change.newStatus === "low stock";
+            
+            if (!shouldNotify) continue;
+            
+            const statusLabel = change.newStatus === "out of stock" ? "OUT OF STOCK" : "LOW STOCK";
+            const message = `⚠️ ${change.itemName}: ${statusLabel} (${change.newQuantity} remaining)`;
+            
+            for (const userDoc of staffDocs) {
+                const notifRef = adminDB.collection("notifications").doc();
+                batch.set(notifRef, {
+                    userId: userDoc.id,
+                    type: "inventory-alert",
+                    message,
+                    read: false,
+                    timestamp,
+                    itemId: change.itemId,
+                    itemName: change.itemName,
+                    status: change.newStatus,
+                    quantity: change.newQuantity,
+                });
+            }
+        }
+        
+        await batch.commit();
+        console.log(`Stock status notifications sent to ${staffDocs.length} staff member(s) for ${stockStatusChanges.length} item(s)`);
+    } catch (err) {
+        console.error("Failed to send stock status notifications:", err);
+        // Don't throw - this shouldn't block order creation
+    }
+}
+
+/**
+ * Creates notifications for staff about order events
+ * Notifies when new orders are placed or order status changes
+ */
+async function notifyStaff(type: "new-order" | "order-status", orderId: number, message: string): Promise<void> {
+    try {
+        // Query for all users with owner or employee roles
+        const ownerSnapshot = await adminDB
+            .collection("users")
+            .where("role", "==", "owner")
+            .get();
+        
+        const employeeSnapshot = await adminDB
+            .collection("users")
+            .where("role", "==", "employee")
+            .get();
+        
+        const staffDocs = [...ownerSnapshot.docs, ...employeeSnapshot.docs];
+        
+        if (staffDocs.length === 0) {
+            console.log("No staff users found for notifications");
+            return;
+        }
+        
+        // Batch write notifications for all staff
+        const batch = adminDB.batch();
+        const timestamp = Date.now();
+        
+        staffDocs.forEach((userDoc) => {
+            const notifRef = adminDB.collection("notifications").doc();
+            batch.set(notifRef, {
+                userId: userDoc.id, // Use the Firestore user doc ID (which is the Firebase Auth UID)
+                type,
+                message,
+                read: false,
+                timestamp,
+                orderId,
+            });
+        });
+        
+        await batch.commit();
+        console.log(`Notifications sent to ${staffDocs.length} staff member(s) for order #${orderId}`);
+    } catch (err) {
+        console.error("Failed to send staff notifications:", err);
+        // Don't throw - this shouldn't block order creation
+    }
+}
+
+/**
  * Verifies the user has employee or owner role
  */
 async function verifyEmployeeOrOwner(request: Request) {
@@ -103,6 +220,7 @@ interface InventoryError {
  * Deducts stock from inventory for each item in an order
  * Uses batch reads for efficiency and batch writes for atomic updates
  * Also calculates the server-side total price for security
+ * Returns information about stock status changes for notifications
  * 
  * @param orderItems - Array of items to deduct from inventory
  * @returns Object with success status, calculated price, and structured errors
@@ -111,10 +229,26 @@ async function deductInventoryStock(orderItems: OrderItem[]): Promise<{
     success: boolean; 
     errors: InventoryError[];
     calculatedPrice?: number;
+    stockStatusChanges?: Array<{
+        itemId: string;
+        itemName: string;
+        oldStatus: InventoryStatus;
+        newStatus: InventoryStatus;
+        newQuantity: number;
+        minStockThreshold: number;
+    }>;
 }> {
     const errors: InventoryError[] = [];
     const batch = adminDB.batch();
     let calculatedPrice = 0;
+    const stockStatusChanges: Array<{
+        itemId: string;
+        itemName: string;
+        oldStatus: InventoryStatus;
+        newStatus: InventoryStatus;
+        newQuantity: number;
+        minStockThreshold: number;
+    }> = [];
     
     try {
         // Batch read: Get all inventory documents in a single call
@@ -147,6 +281,7 @@ async function deductInventoryStock(orderItems: OrderItem[]): Promise<{
             const minStockThreshold = inventoryData?.minStockThreshold ?? 10;
             const itemPrice = inventoryData?.price ?? 0;
             const newQuantity = Math.max(0, currentQuantity - item.quantity);
+            const oldStatus = calculateInventoryStatus(currentQuantity, minStockThreshold);
             const newStatus = calculateInventoryStatus(newQuantity, minStockThreshold);
             
             // Calculate server-side price for this item
@@ -164,6 +299,18 @@ async function deductInventoryStock(orderItems: OrderItem[]): Promise<{
                         : `Only ${currentQuantity} "${item.name}" available, but you requested ${item.quantity}.`,
                 });
                 continue;
+            }
+            
+            // Track status changes for notification
+            if (oldStatus !== newStatus) {
+                stockStatusChanges.push({
+                    itemId: item.itemId,
+                    itemName: item.name,
+                    oldStatus,
+                    newStatus,
+                    newQuantity,
+                    minStockThreshold,
+                });
             }
             
             // Queue the update in the batch
@@ -192,7 +339,7 @@ async function deductInventoryStock(orderItems: OrderItem[]): Promise<{
     // Commit all inventory updates atomically
     try {
         await batch.commit();
-        return { success: true, errors: [], calculatedPrice };
+        return { success: true, errors: [], calculatedPrice, stockStatusChanges };
     } catch (err) {
         return { 
             success: false, 
@@ -540,6 +687,33 @@ export async function POST(request: Request) {
         console.log(`Order created with ID: ${nextOrderId}, Document ID: ${docRef.id}`);
         console.log(`Inventory deducted for ${body.OrderContents.length} item(s)`);
 
+        // Notify staff about the new order (async, don't wait)
+        notifyStaff("new-order", nextOrderId, `New order #${nextOrderId} placed by ${body.displayName}`).catch(err => {
+            console.error("Notification error:", err);
+        });
+
+        // Notify staff about any stock status changes (async, don't wait)
+        if (stockResult.stockStatusChanges && stockResult.stockStatusChanges.length > 0) {
+            notifyStaffAboutStockChanges(stockResult.stockStatusChanges).catch(err => {
+                console.error("Stock notification error:", err);
+            });
+        }
+
+        // Notify customer about order confirmation
+        try {
+            const customerNotifRef = adminDB.collection("notifications").doc();
+            await customerNotifRef.set({
+                userId: body.userId,
+                type: "order-confirmation",
+                message: `Your order #${nextOrderId} was placed successfully.`,
+                read: false,
+                timestamp: Date.now(),
+                orderId: nextOrderId,
+            });
+        } catch (err) {
+            console.error("Failed to send customer confirmation notification:", err);
+        }
+
         return Response.json(
             {
                 success: true,
@@ -687,6 +861,41 @@ export async function PUT(request: Request) {
         await docRef.update(updateData);
 
         console.log(`Order ${body.OrderID} updated successfully`);
+
+        // If status changed, send notifications
+        if (body.status !== undefined && body.status !== currentStatus) {
+            const actorName = currentUser.name || currentUser.email?.split("@")[0] || "staff";
+            
+            // Notify staff about the status change
+            let staffMessage = `Order #${body.OrderID} status changed to ${body.status}`;
+            if (body.status === "cancelled" && currentUser.role === "customer") {
+                staffMessage = `Order #${body.OrderID} was cancelled by the customer.`;
+            } else if (currentUser.role !== "customer") {
+                staffMessage = `Order #${body.OrderID} status changed to ${body.status} by ${actorName}`;
+            }
+            
+            notifyStaff("order-status", body.OrderID, staffMessage).catch(err => {
+                console.error("Staff notification error:", err);
+            });
+            
+            // Notify customer about status change
+            const customerId = currentOrder.userId;
+            if (customerId) {
+                try {
+                    const customerNotifRef = adminDB.collection("notifications").doc();
+                    await customerNotifRef.set({
+                        userId: customerId,
+                        type: "order-status",
+                        message: `Your order #${body.OrderID} status changed to ${body.status}`,
+                        read: false,
+                        timestamp: Date.now(),
+                        orderId: body.OrderID,
+                    });
+                } catch (err) {
+                    console.error("Failed to send customer status notification:", err);
+                }
+            }
+        }
 
         return Response.json(
             { success: true, orderId: body.OrderID },

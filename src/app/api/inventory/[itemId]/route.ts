@@ -8,10 +8,7 @@ type RouteParams = {
 };
 
 // GET single inventory item
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   const { itemId } = await params;
   const authResult = await verify(request);
 
@@ -23,10 +20,7 @@ export async function GET(
   }
 
   try {
-    const itemDoc = await adminDB
-      .collection("inventory")
-      .doc(itemId)
-      .get();
+    const itemDoc = await adminDB.collection("inventory").doc(itemId).get();
 
     if (!itemDoc.exists) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
@@ -49,10 +43,7 @@ export async function GET(
 }
 
 // PUT - Update existing inventory item
-export async function PUT(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   const { itemId } = await params;
   const authResult = await verify(request);
 
@@ -97,6 +88,27 @@ export async function PUT(
       );
     }
 
+    if (costPrice !== undefined && costPrice < 0) {
+      return NextResponse.json(
+        { error: "Cost cannot be negative" },
+        { status: 400 }
+      );
+    }
+
+    if (!name) {
+      return NextResponse.json(
+        { error: "Name field cannot be empty" },
+        { status: 400 }
+      );
+    }
+
+    if (minStockThreshold < 0) {
+      return NextResponse.json(
+        { error: "Minimum stock cannot be negative" },
+        { status: 400 }
+      );
+    }
+
     // Build update object with only provided fields
     const updates: any = {
       lastUpdated: new Date().toISOString(),
@@ -116,7 +128,10 @@ export async function PUT(
       // Handle legacy field name 'minStock' for backward compatibility
       const existingData = itemDoc.data();
       const threshold =
-        minStockThreshold || existingData?.minStockThreshold || existingData?.minStock || 10;
+        minStockThreshold ||
+        existingData?.minStockThreshold ||
+        existingData?.minStock ||
+        10;
 
       if (quantity === 0) {
         updates.status = "out of stock";
@@ -159,10 +174,7 @@ export async function PUT(
 }
 
 // DELETE - Remove inventory item
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const { itemId } = await params;
   const authResult = await verify(request);
 
