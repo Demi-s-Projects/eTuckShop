@@ -7,7 +7,7 @@ import { adminAuth } from "@/firebase/admin";
 // Paths that require authentication + role checks 
 // for now just everything under owner and customer
 export const config = {
-	matcher: ["/owner/:path*", "/customer/:path*"],
+	matcher: ["/owner/:path*", "/customer/:path*", "/employee/:path*"],
 };
 
 export async function proxy(req: NextRequest) {

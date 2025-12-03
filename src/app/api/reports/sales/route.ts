@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { adminAuth, adminDB } from "@/firebase/admin";
-import { VALID_ROLES } from "@/util/consts";
 /**
  * GET /api/reports/sales
  *
@@ -11,22 +10,21 @@ import { VALID_ROLES } from "@/util/consts";
  * - endDate: ISO date string (YYYY-MM-DD)
  */
 
-export interface Item{
-    name: string,
-    itemId: string,
-    quantity: number,
-    priceAtPurchase: number,
-
+export interface Item {
+	name: string;
+	itemId: string;
+	quantity: number;
+	priceAtPurchase: number;
 }
-export interface Order{
-    OrderDate: Date,
-    OrderTime: Date,
-    Customer: string,
-    Items?: Item[],
-    ItemNames: string,
-    ItemCount: number,
-    Sale: number,
-    Profit?: number,
+export interface Order {
+	OrderDate: string;
+	OrderTime: string;
+	Customer: string;
+	Items?: Item[];
+	ItemNames: string;
+	ItemCount: number;
+	Sale: number;
+	Profit?: number;
 }
 
 export async function GET(req: Request) {
@@ -34,6 +32,7 @@ export async function GET(req: Request) {
 		const { searchParams } = new URL(req.url);
 		const startDate = searchParams.get("startDate");
 		const endDate = searchParams.get("endDate");
+		const timezone = searchParams.get("timeZone");
 
 		// Verify auth
 		const authHeader = req.headers.get("authorization");
@@ -58,9 +57,13 @@ export async function GET(req: Request) {
 			return new NextResponse(JSON.stringify({ error: "Missing date range" }), { status: 400 });
 		}
 
+		if (timezone && !isValidTimezone(timezone!)) {
+			return new NextResponse(JSON.stringify({ error: "Invalid Timezone" }), { status: 400 });
+		}
+
 		// Parse dates
-		const start = new Date(`${startDate}T00:00:00.000Z`);
-		const end = new Date(`${endDate}T23:59:59.999Z`);
+		const start = new Date(`${startDate}T00:00:00.000`);
+		const end = new Date(`${endDate}T23:59:59.999`);
 
 		// Query completed orders from Firestore
 		const ordersSnap = await adminDB
@@ -73,12 +76,30 @@ export async function GET(req: Request) {
 		const orders: Order[] = [];
 		ordersSnap.forEach((doc) => {
 			const data = doc.data();
+			const jsDate = data.OrderTime?.toDate?.();
+
+			const OrderDate = new Intl.DateTimeFormat("en-CA", { 
+				timeZone: timezone? timezone: undefined,
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit",
+			}).format(jsDate);
+
+			const OrderTime = new Intl.DateTimeFormat("en-GB", {
+				timeZone: timezone? timezone: undefined,
+				hour: "2-digit",
+				minute: "2-digit",
+				second: "2-digit",
+				hour12: false,
+			}).format(jsDate);
+
+
 			orders.push({
-				OrderDate: data.OrderTime?.toDate?.()?.toISOString()?.slice(0, 10) || "",
-				OrderTime: data.OrderTime?.toDate?.()?.toTimeString().slice(0, 8) || "",
+				OrderDate,
+				OrderTime,
 				Customer: data.displayName || "",
-                Items: data.OrderContents,
-                ItemNames: data.OrderContents.map((item: Item) => item.name).join(", "),
+				Items: data.OrderContents,
+				ItemNames: data.OrderContents.map((item: Item) => item.name).join(", "),
 				ItemCount: data.OrderContents?.length || 0,
 				Sale: data.TotalPrice || 0,
 			});
@@ -109,13 +130,22 @@ export async function GET(req: Request) {
 			order.Profit = orderProfit;
 		}
 
-        orders.forEach(order => {
-            delete order.Items
-        })
+		orders.forEach((order) => {
+			delete order.Items;
+		});
 
 		return NextResponse.json({ data: orders });
 	} catch (err) {
 		console.error("Sales report error:", err);
 		return new NextResponse(JSON.stringify({ error: "Failed to generate report" }), { status: 500 });
+	}
+}
+
+function isValidTimezone(tz: string) {
+	try {
+		Intl.DateTimeFormat(undefined, { timeZone: tz });
+		return true;
+	} catch {
+		return false;
 	}
 }
