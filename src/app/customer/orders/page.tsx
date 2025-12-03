@@ -79,7 +79,11 @@ export default function CustomerOrdersPage() {
     }
 
     // Create user object for Dashboard
-    const dashboardUser = formatDashboardUser(authUser, "Customer");
+    const dashboardUser = {
+        name: user.displayName || user.email?.split('@')[0] || 'Customer',
+        role: 'Customer',
+        email: user.email || undefined
+    };
 
     return (
         <Dashboard theme="red" user={dashboardUser}>

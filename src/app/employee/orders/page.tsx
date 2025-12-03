@@ -18,6 +18,9 @@
 
 import Dashboard from "@/components/Dashboard";
 import styles from "@/styles/Orders.module.css";
+import { useState, useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/firebase/config";
 import type { OrderStatus, OrderItem } from "@/types/Order";
 import {
     useOrderManagement,
@@ -27,13 +30,11 @@ import {
     STAFF_FILTER_STATUSES,
 } from "@/hooks/useOrderManagement";
 
-/** User object for Dashboard to display correct sidebar */
-const dashboardUser = {
-    name: "Employee",
-    role: "employee",
-};
+type UserInfo = { name: string; role: string; email?: string } | undefined;
+
 
 export default function EmployeeOrdersPage() {
+    const [user, setUser] = useState<UserInfo>(undefined);
     // Use the shared order management hook
     const {
         loading,
@@ -46,8 +47,24 @@ export default function EmployeeOrdersPage() {
         filteredOrders,
     } = useOrderManagement();
 
+    useEffect(() => {
+		const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+			if (firebaseUser) {
+				setUser({
+					name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Owner",
+					role: "Owner",
+					email: firebaseUser.email || undefined,
+				});
+			} else {
+				setUser(undefined);
+			}
+		});
+
+		return () => unsubscribe();
+	}, []);
+
     return (
-        <Dashboard theme="green" user={dashboardUser}>
+        <Dashboard theme="green" user={user}>
             <div className={styles.container}>
                 <div className={styles.headerRow}>
                     <h1 className={styles.title}>Order Management</h1>
