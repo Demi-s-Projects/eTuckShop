@@ -111,7 +111,7 @@ export default function EmployeeOrdersPage() {
                                                     <span className={styles.itemQuantity}> x{item.quantity}</span>
                                                 </span>
                                                 <span className={styles.itemPrice}>
-                                                    R{(item.priceAtPurchase * item.quantity).toFixed(2)}
+                                                    ${(item.priceAtPurchase * item.quantity).toFixed(2)}
                                                 </span>
                                             </div>
                                         ))}
@@ -120,7 +120,7 @@ export default function EmployeeOrdersPage() {
 
                                 <div className={styles.orderTotal}>
                                     <span className={styles.totalLabel}>Total:</span>
-                                    <span className={styles.totalAmount}>R{order.TotalPrice.toFixed(2)}</span>
+                                    <span className={styles.totalAmount}>${order.TotalPrice.toFixed(2)}</span>
                                 </div>
 
                                 {(order.status === "pending" || order.status === "in-progress" || order.status === "cancelled") && (

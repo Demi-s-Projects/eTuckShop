@@ -2,15 +2,14 @@
  * Cart Sidebar Component
  * 
  * A sliding sidebar panel that displays the customer's shopping cart.
- * Allows customers to review items, adjust quantities, and place orders.
+ * Allows customers to review items, adjust quantities, and proceed to checkout.
  * 
  * Features:
  * - Displays all items currently in the cart
  * - Quantity adjustment (increase/decrease) for each item
  * - Remove individual items from cart
  * - Shows running total price
- * - Checkout functionality that creates an order via API
- * - Success/error feedback for order placement
+ * - Proceeds to billing page for payment (order created after payment)
  * - Overlay background that closes sidebar when clicked
  * 
  * Props:
@@ -22,9 +21,8 @@
 
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useCart } from "@/context/CartContext";
-import type { OrderItem } from "@/types/Order";
 import styles from "@/styles/Menu.module.css";
 
 interface CartSidebarProps {
@@ -40,9 +38,8 @@ interface CartSidebarProps {
 
 export default function CartSidebar({ isOpen, onClose, userId, displayName }: CartSidebarProps) {
     const router = useRouter();
+    const pathname = usePathname();
     const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [orderSuccess, setOrderSuccess] = useState(false);
     const [cartCleared, setCartCleared] = useState(false);
     const [orderError, setOrderError] = useState("");
 
@@ -64,57 +61,28 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
         setTimeout(() => setCartCleared(false), 2000);
     };
 
-    const handleCheckout = async () => {
+    const handleCheckout = () => {
         if (items.length === 0) return;
 
-        setIsSubmitting(true);
-        setOrderError("");
-        setOrderSuccess(false);
-
-        try {
-            // Format order contents as structured OrderItem array
-            const orderContents: OrderItem[] = items.map((item) => ({
+        // Store checkout data in sessionStorage for the billing page
+        const checkoutData = {
+            userId,
+            displayName,
+            items: items.map((item) => ({
                 itemId: item.id,
                 name: item.name,
                 quantity: item.quantity,
                 priceAtPurchase: item.price,
-            }));
-
-            const response = await fetch("/api/orders", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    userId: userId,
-                    displayName: displayName,
-                    OrderContents: orderContents,
-                    TotalPrice: totalPrice,
-                }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || "Failed to place order");
-            }
-
-            const orderData = await response.json();
-            const orderId = orderData.orderId;
-
-            setOrderSuccess(true);
-            setTimeout(() => setOrderSuccess(false), 2000);
-            // Only clear cart after showing success message
-            setTimeout(() => {
-                clearCart();
-                onClose();
-                router.push(`/customer/billing?orderID=${orderId}`);
-            }, 2000);
-        } catch (error) {
-            console.error("Error placing order:", error);
-            setOrderError(error instanceof Error ? error.message : "Failed to place order");
-        } finally {
-            setIsSubmitting(false);
-        }
+            })),
+            totalPrice,
+            returnPath: pathname, // Store current path to return after payment
+        };
+        
+        sessionStorage.setItem("checkoutData", JSON.stringify(checkoutData));
+        
+        // Navigate to billing page - cart remains intact until payment is confirmed
+        onClose();
+        router.push("/customer/billing");
     };
 
     if (!isOpen) return null;
@@ -131,11 +99,6 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
                 </div>
 
                 <div className={styles.cartItems}>
-                    {orderSuccess && (
-                        <div className={styles.successMessage}>
-                            Order placed successfully! 🎉
-                        </div>
-                    )}
                     {cartCleared && (
                         <div className={styles.successMessage}>
                             Cart cleared!
@@ -145,7 +108,7 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
                         <div className={styles.errorMessage}>{orderError}</div>
                     )}
 
-                    {items.length === 0 && !orderSuccess ? (
+                    {items.length === 0 ? (
                         <div className={styles.emptyCart}>
                             <p>Your cart is empty</p>
                             <p>Add some items from the menu!</p>
@@ -193,15 +156,14 @@ export default function CartSidebar({ isOpen, onClose, userId, displayName }: Ca
                     <button
                         className={styles.checkoutButton}
                         onClick={handleCheckout}
-                        disabled={items.length === 0 || isSubmitting}
+                        disabled={items.length === 0}
                     >
-                        {isSubmitting ? "Placing Order..." : "Place Order"}
+                        Proceed to Checkout
                     </button>
                     {items.length > 0 && (
                         <button
                             className={styles.clearButton}
                             onClick={handleClearCart}
-                            disabled={isSubmitting}
                         >
                             Clear Cart
                         </button>

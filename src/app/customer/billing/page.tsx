@@ -2,7 +2,13 @@
  * Customer Billing Page
  * 
  * Handles payment processing and receipt generation for customer orders.
- * Customers are redirected here after placing an order from the cart.
+ * Customers are redirected here from the cart to complete payment.
+ * 
+ * Flow:
+ * 1. Cart items are passed via sessionStorage (order not yet created)
+ * 2. Customer reviews bill and selects payment method
+ * 3. On payment confirmation: order is created in Firestore, cart is cleared
+ * 4. On cancel: customer returns to previous page with cart intact
  * 
  * Features:
  * - Bill summary with item details and totals
@@ -10,15 +16,16 @@
  * - Card tokenization for secure storage (PCI compliance)
  * - Receipt generation and download as .txt file
  * - GCT (15%) tax calculation
- * - Bulk discount (10% off when quantity >= 3)
+ * - Bulk discount (10% off when quantity >= 10)
  */
 
 "use client";
 
-import { useState, useEffect, FormEvent, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect, FormEvent, Suspense, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { db } from "@/firebase/config";
 import { doc, setDoc, collection } from "firebase/firestore";
+import { useCart } from "@/context/CartContext";
 import styles from "@/styles/Billing.module.css";
 
 // Shop configuration
@@ -26,18 +33,16 @@ const SHOP_NAME = "eTuckShop";
 const SHOP_ADDRESS = "Washington Plaza, Kingston";
 const GCT_RATE = 0.15;
 
-/** Order type matching the API response */
-type Order = {
-    OrderID: number;
+/** Checkout data passed from cart via sessionStorage */
+type CheckoutData = {
     userId: string;
     displayName: string;
-    OrderTime: string;
-    OrderContents: OrderItem[];
-    TotalPrice: number;
-    status: string;
+    items: OrderItem[];
+    totalPrice: number;
+    returnPath: string;
 };
 
-/** Order item from API (uses priceAtPurchase) */
+/** Order item from cart */
 type OrderItem = {
     itemId: string;
     name: string;
@@ -60,30 +65,15 @@ type CalculatedItem = BillItem & {
 };
 
 /**
- * Fetches an order by ID from the API
- */
-async function getOrderByID(id: string): Promise<Order | null> {
-    try {
-        const res = await fetch(`/api/orders?orderId=${encodeURIComponent(id)}`);
-        if (!res.ok) return null;
-        const json = await res.json();
-        return json.order as Order;
-    } catch {
-        return null;
-    }
-}
-
-/**
  * Main billing content component
  * Separated to allow Suspense boundary for useSearchParams
  */
 function BillingContent() {
-    const searchParams = useSearchParams();
     const router = useRouter();
-    const orderID = searchParams.get("orderID") || "";
+    const { clearCart } = useCart();
 
-    // Order and item state
-    const [order, setOrder] = useState<Order | null>(null);
+    // Checkout data from sessionStorage
+    const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null);
     const [orderItems, setOrderItems] = useState<BillItem[]>([]);
     const [cartCalculation, setCartCalculation] = useState<CalculatedItem[]>([]);
     const [totals, setTotals] = useState({ subtotal: 0, gct: 0, grandTotal: 0 });
@@ -96,34 +86,45 @@ function BillingContent() {
     const [cardData, setCardData] = useState({ number: "", expiry: "", cvv: "" });
     const [receiptText, setReceiptText] = useState("");
     const [processing, setProcessing] = useState(false);
+    
+    // Order created after payment
+    const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
+    
+    // Store return path separately so it persists after clearing sessionStorage
+    const [returnPath, setReturnPath] = useState<string>("/customer/menu");
 
-    // Fetch order on mount
+    // Load checkout data from sessionStorage on mount
     useEffect(() => {
-        const fetchOrder = async () => {
-            if (!orderID) {
-                setError("No order ID provided");
+        const storedData = sessionStorage.getItem("checkoutData");
+        if (!storedData) {
+            setError("No checkout data found. Please add items to your cart first.");
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const data: CheckoutData = JSON.parse(storedData);
+            if (!data.items || data.items.length === 0) {
+                setError("Your cart is empty. Please add items first.");
                 setLoading(false);
                 return;
             }
-
-            const data = await getOrderByID(orderID);
-            if (data) {
-                setOrder(data);
-                // Map OrderContents to BillItems (convert priceAtPurchase to price)
-                const items: BillItem[] = data.OrderContents.map((oi) => ({
-                    name: oi.name,
-                    price: oi.priceAtPurchase,
-                    quantity: oi.quantity,
-                }));
-                setOrderItems(items);
-            } else {
-                setError("Order not found");
-            }
-            setLoading(false);
-        };
-
-        fetchOrder();
-    }, [orderID]);
+            
+            setCheckoutData(data);
+            setReturnPath(data.returnPath || "/customer/menu");
+            
+            // Map OrderContents to BillItems
+            const items: BillItem[] = data.items.map((oi) => ({
+                name: oi.name,
+                price: oi.priceAtPurchase,
+                quantity: oi.quantity,
+            }));
+            setOrderItems(items);
+        } catch {
+            setError("Invalid checkout data. Please try again.");
+        }
+        setLoading(false);
+    }, []);
 
     // Calculate totals whenever orderItems change
     useEffect(() => {
@@ -161,36 +162,81 @@ function BillingContent() {
     };
 
     /**
+     * Creates the order in Firestore via the API
+     * Called only after payment is confirmed
+     */
+    const createOrder = useCallback(async (): Promise<number | null> => {
+        if (!checkoutData) return null;
+
+        try {
+            const response = await fetch("/api/orders", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    userId: checkoutData.userId,
+                    displayName: checkoutData.displayName,
+                    OrderContents: checkoutData.items,
+                    TotalPrice: checkoutData.totalPrice,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to create order");
+            }
+
+            const orderData = await response.json();
+            return orderData.orderId;
+        } catch (err) {
+            console.error("Error creating order:", err);
+            throw err;
+        }
+    }, [checkoutData]);
+
+    /**
      * Processes the payment based on selected method
+     * Creates the order in Firestore after successful payment
      */
     const processPayment = async () => {
         setProcessing(true);
 
-        if (paymentType === "cash") {
-            generateReceipt();
-            setProcessing(false);
-            return;
+        // For card payments, validate first
+        if (paymentType !== "cash") {
+            if (!validateCard()) {
+                alert("Invalid card information. Please check your details.");
+                setProcessing(false);
+                return;
+            }
+
+            // Simulate card decline for cards starting with 0
+            if (cardData.number.startsWith("0")) {
+                alert("Card declined. Please try a different card.");
+                setStage("bill");
+                setPaymentType("");
+                setCardData({ number: "", expiry: "", cvv: "" });
+                setProcessing(false);
+                return;
+            }
         }
 
-        if (!validateCard()) {
-            alert("Invalid card information. Please check your details.");
-            setProcessing(false);
-            return;
-        }
+        try {
+            // Create the order in Firestore
+            const orderId = await createOrder();
+            if (!orderId) {
+                throw new Error("Failed to create order");
+            }
+            setCreatedOrderId(orderId);
 
-        // Simulate card decline for cards starting with 0
-        if (cardData.number.startsWith("0")) {
-            alert("Card declined. Please try a different card.");
-            setStage("bill");
-            setPaymentType("");
-            setCardData({ number: "", expiry: "", cvv: "" });
-            setProcessing(false);
-            return;
-        }
+            // Clear the cart silently now that order is confirmed (no toast needed)
+            clearCart(true);
+            
+            // Clear checkout data from sessionStorage
+            sessionStorage.removeItem("checkoutData");
 
-        // Tokenize and store card for debit/credit
-        if (paymentType === "debit" || paymentType === "credit") {
-            try {
+            // Tokenize and store card for debit/credit
+            if (paymentType === "debit" || paymentType === "credit") {
                 const token = tokenizeCard();
                 
                 // Store token in Firestore cardTokens collection
@@ -198,17 +244,19 @@ function BillingContent() {
                     token,
                     cardType: paymentType,
                     lastFourDigits: cardData.number.slice(-4),
-                    orderID: order?.OrderID || "UNKNOWN",
-                    userId: order?.userId || "UNKNOWN",
+                    orderID: orderId,
+                    userId: checkoutData?.userId || "UNKNOWN",
                     timestamp: new Date(),
                 });
 
                 console.log("Card token stored:", token);
-                generateReceipt();
-            } catch (err) {
-                console.error("Error storing card token:", err);
-                alert("Payment processing failed. Please try again.");
             }
+
+            // Generate receipt with the created order ID
+            generateReceipt(orderId);
+        } catch (err) {
+            console.error("Payment processing error:", err);
+            alert(err instanceof Error ? err.message : "Payment processing failed. Please try again.");
         }
 
         setProcessing(false);
@@ -217,7 +265,7 @@ function BillingContent() {
     /**
      * Generates the receipt text
      */
-    const generateReceipt = () => {
+    const generateReceipt = (orderId: number) => {
         const timestamp = new Date().toLocaleString();
         let receipt = "";
         
@@ -226,9 +274,9 @@ function BillingContent() {
         receipt += `${SHOP_ADDRESS}\n`;
         receipt += `${"=".repeat(45)}\n\n`;
         
-        receipt += `ORDER #: ${order?.OrderID || "UNKNOWN"}\n`;
+        receipt += `ORDER #: ${orderId}\n`;
         receipt += `DATE: ${timestamp}\n`;
-        receipt += `CUSTOMER: ${order?.displayName || "Guest"}\n`;
+        receipt += `CUSTOMER: ${checkoutData?.displayName || "Guest"}\n`;
         receipt += `PAYMENT: ${paymentType === "cash" ? "Cash on Arrival" : paymentType.toUpperCase() + " Card"}\n`;
         receipt += `${"-".repeat(45)}\n\n`;
 
@@ -264,9 +312,24 @@ function BillingContent() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `receipt_order_${order?.OrderID || orderID}.txt`;
+        a.download = `receipt_order_${createdOrderId || "unknown"}.txt`;
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    /**
+     * Handles cancel - returns to previous page without creating order
+     */
+    const handleCancel = () => {
+        // Don't clear checkout data - cart is still preserved
+        router.push(returnPath);
+    };
+
+    /**
+     * Handles return to previous page after order completion
+     */
+    const handleReturnAfterOrder = () => {
+        router.push(returnPath);
     };
 
     // Loading state
@@ -292,11 +355,11 @@ function BillingContent() {
                         <h1 className={styles.title}>Error</h1>
                         <p>{error}</p>
                         <button 
-                            onClick={() => router.push("/customer/home")} 
+                            onClick={() => router.push("/customer/menu")} 
                             className={`${styles.button} ${styles["button-red"]}`}
                             style={{ marginTop: "1rem" }}
                         >
-                            Back to Home
+                            Back to Menu
                         </button>
                     </div>
                 </div>
@@ -312,7 +375,7 @@ function BillingContent() {
                     <div className={styles.section}>
                         <h1 className={styles.title}>Bill Summary</h1>
                         <p style={{ color: "#6b7280", marginBottom: "1rem" }}>
-                            Order #{order?.OrderID}
+                            Review your order before payment
                         </p>
                         
                         <div className={styles.itemsList}>
@@ -350,7 +413,7 @@ function BillingContent() {
                                 Continue to Payment
                             </button>
                             <button 
-                                onClick={() => router.push("/customer/home")} 
+                                onClick={handleCancel} 
                                 className={`${styles.button} ${styles["button-red"]}`}
                             >
                                 Cancel
@@ -495,6 +558,9 @@ function BillingContent() {
                         <p style={{ color: "#16a34a", marginBottom: "1rem", fontWeight: 600 }}>
                             Your payment has been processed successfully.
                         </p>
+                        <p style={{ color: "#6b7280", marginBottom: "1rem" }}>
+                            Order #{createdOrderId}
+                        </p>
                         
                         <pre className={styles.receipt}>{receiptText}</pre>
                         
@@ -506,10 +572,10 @@ function BillingContent() {
                                 📥 Download Receipt (.txt)
                             </button>
                             <button 
-                                onClick={() => router.push("/customer/home")} 
+                                onClick={handleReturnAfterOrder} 
                                 className={`${styles.button} ${styles["button-gray"]}`}
                             >
-                                Back to Home
+                                Continue Shopping
                             </button>
                         </div>
                     </div>

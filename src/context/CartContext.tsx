@@ -33,7 +33,7 @@ interface CartContextType {
     addItem: (item: MenuItem) => void;
     removeItem: (itemId: string) => void;
     updateQuantity: (itemId: string, quantity: number) => void;
-    clearCart: () => void;
+    clearCart: (silent?: boolean) => void;
     totalItems: number;
     totalPrice: number;
 }
@@ -144,10 +144,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    const clearCart = useCallback(() => {
+    const clearCart = useCallback((silent?: boolean) => {
         setItems([]);
         if (userId) clearStoredCart(userId);
-        toast.error(`Cart cleared!`);
+        if (!silent) toast.error(`Cart cleared!`);
     }, [userId]);
 
     // Memoize derived values to prevent recalculation on every render
