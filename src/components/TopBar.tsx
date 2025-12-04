@@ -49,6 +49,9 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick, user }) => {
       </div>
 
       <div className={styles.rightSection}>
+        {/* Notifications - positioned left of profile to prevent accidental logouts */}
+        <Notifications />
+        
         <div className={styles.userInfo}>
           <div className={styles.avatar} title={user?.email}>
             {initials}
@@ -59,10 +62,8 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick, user }) => {
           </div>
         </div>
         
-        {/* Reusing the LogoutButton component */}
+        {/* Logout button */}
         <div className={styles.logoutWrapper}>
-          <Notifications />
-          <span style={{ marginLeft: 8 }} />
           <LogoutButton width="auto" className={styles.logoutButton} />
         </div>
       </div>
