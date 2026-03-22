@@ -1,4 +1,4 @@
-### This repository contains the final project for the COMP2140 Group 3 Thursday 9-11am stream
+### This repository contains the final project for the COMP2171 Group 2 Friday 9-11am B stream
 
 # eTuckShop
 
