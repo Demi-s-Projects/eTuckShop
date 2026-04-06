@@ -25,6 +25,7 @@ import type { MenuItem, CartItem } from "@/types/MenuItem";
 import { auth } from "@/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
 import { toast } from "react-hot-toast";
+import { CartStateManager } from "@/state-managers/cart/CartStateManager";
 
 const CART_STORAGE_KEY = "etuckshop_cart";
 
@@ -73,6 +74,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const [items, setItems] = useState<CartItem[]>([]);
     const [userId, setUserId] = useState<string | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
+    const cartManager = useMemo(() => new CartStateManager(), []);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -97,52 +99,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }, [items, userId, isInitialized]);
 
     const addItem = useCallback((item: MenuItem) => {
-        let action: "added" | "incremented" = "added";
+        const result = cartManager.addItem(items, item);
+        setItems(result.items);
 
-        setItems((prevItems) => {
-            const existingItem = prevItems.find((i) => i.id === item.id);
-            if (existingItem) {
-                action = "incremented";
-                return prevItems.map((i) =>
-                    i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-                );
-            }
-            return [...prevItems, { ...item, quantity: 1 }];
-        });
-
-        if (action === "added") toast.success(`${item.name} added to cart!`);
+        if (result.action === "added") toast.success(`${item.name} added to cart!`);
         else toast.success(`Increased quantity of ${item.name} in cart!`);
-    }, []);
+    }, [cartManager, items]);
 
     const removeItem = useCallback((itemId: string) => {
-        let removedItemName: string | null = null;
+        const result = cartManager.removeItem(items, itemId);
+        setItems(result.items);
 
-        setItems((prevItems) => {
-            const item = prevItems.find(i => i.id === itemId);
-            if (item) removedItemName = item.name;
-            return prevItems.filter((item) => item.id !== itemId);
-        });
-
-        if (removedItemName) toast.error(`${removedItemName} removed from cart!`);
-    }, []);
+        if (result.removedItemName) toast.error(`${result.removedItemName} removed from cart!`);
+    }, [cartManager, items]);
 
     const updateQuantity = useCallback((itemId: string, quantity: number) => {
-        if (quantity <= 0) {
-            let removedItemName: string | null = null;
-            setItems((prevItems) => {
-                const item = prevItems.find(i => i.id === itemId);
-                if (item) removedItemName = item.name;
-                return prevItems.filter((item) => item.id !== itemId);
-            });
-            if (removedItemName) toast.error(`${removedItemName} removed from cart!`);
-        } else {
-            setItems((prevItems) =>
-                prevItems.map((item) =>
-                    item.id === itemId ? { ...item, quantity } : item
-                )
-            );
-        }
-    }, []);
+        const result = cartManager.updateQuantity(items, itemId, quantity);
+        setItems(result.items);
+        if (result.removedItemName) toast.error(`${result.removedItemName} removed from cart!`);
+    }, [cartManager, items]);
 
     const clearCart = useCallback((silent?: boolean) => {
         setItems([]);
@@ -152,12 +127,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     // Memoize derived values to prevent recalculation on every render
     const totalItems = useMemo(() => 
-        items.reduce((sum, item) => sum + item.quantity, 0), 
-        [items]
+        cartManager.totalItems(items), 
+        [cartManager, items]
     );
     const totalPrice = useMemo(() => 
-        items.reduce((sum, item) => sum + item.price * item.quantity, 0), 
-        [items]
+        cartManager.totalPrice(items), 
+        [cartManager, items]
     );
 
     return (
