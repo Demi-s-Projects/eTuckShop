@@ -13,11 +13,12 @@
  */
 
 "use client";
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import type { MenuItem } from "@/types/MenuItem";
-import type { InventoryItem, InventoryCategory } from "@/app/api/inventory/inventory";
+import type { InventoryItem } from "@/app/api/inventory/inventory";
+import { MenuStateManager } from "@/state-managers/menu/MenuStateManager";
 
 /** Shape of the menu context value */
 interface MenuContextType {
@@ -33,31 +34,12 @@ interface MenuContextType {
 
 const MenuContext = createContext<MenuContextType | undefined>(undefined);
 
-/**
- * Maps inventory category to customer-facing category name
- */
-function mapCategory(cat: InventoryCategory): MenuItem["category"] {
-    switch (cat) {
-        case "snack":
-            return "Snacks";
-        case "drink":
-            return "Drinks";
-        case "food":
-            return "Food";
-        case "health and wellness":
-            return "Health and Wellness";
-        case "home care":
-            return "Home Care";
-        default:
-            return "Meals";
-    }
-}
-
 export function MenuProvider({ children }: { children: ReactNode }) {
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [hasFetched, setHasFetched] = useState(false);
+    const menuManager = useMemo(() => new MenuStateManager(), []);
 
     const fetchMenuItems = useCallback(async () => {
         try {
@@ -67,20 +49,9 @@ export function MenuProvider({ children }: { children: ReactNode }) {
             const ref = collection(db, "inventory");
             const snapshot = await getDocs(ref);
 
-            const fetched: MenuItem[] = snapshot.docs.map((doc) => {
-                const data = doc.data() as InventoryItem;
-
-                return {
-                    id: doc.id,
-                    name: data.name,
-                    description: data.description || "",
-                    price: data.price || 0,
-                    category: mapCategory(data.category),
-                    lowStock: data.status === "low stock",
-                    available: data.status === "in stock" || data.status === "low stock",
-                    lastUpdated: data.lastUpdated || null,
-                };
-            });
+            const fetched: MenuItem[] = snapshot.docs.map((doc) =>
+                menuManager.mapInventoryDoc(doc.id, doc.data() as InventoryItem)
+            );
 
             setMenuItems(fetched);
             setHasFetched(true);
@@ -90,7 +61,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [menuManager]);
 
     // Fetch on mount only if we haven't fetched yet
     useEffect(() => {

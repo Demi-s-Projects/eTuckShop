@@ -40,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Documentation/analysis files
+ETUCKSHOP_REPO_ANALYSIS.md
+OOP_REFACTOR_PLAN.md
+OOP_REFACTOR_PLAN_RECOMMENDED.md
+OOP_REFACTOR_PLAN_V2.md
